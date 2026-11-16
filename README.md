@@ -81,6 +81,8 @@ cargo test --locked
 cargo build --manifest-path plugin/Cargo.toml --release --locked --target x86_64-unknown-linux-gnu
 cargo fmt --manifest-path plugin/Cargo.toml -- --check
 cargo clippy --manifest-path plugin/Cargo.toml --all-targets --locked -- -D warnings
+cargo build --manifest-path plugin/Cargo.toml --locked
+python3 scripts/verify-plugin.py plugin/target/debug/cpr-keyword-guard-plugin
 ```
 
 Linux 二进制须在 Linux 环境构建或使用完整交叉工具链，不能给 macOS 二进制换一个 target 名称。使用与 SDK 同一提交构建的官方 [`cpr-plugin`](https://github.com/zyycn/codex-proxy-rs/tree/5b7f307bb26a5d0221f1f59475bc049bb350c21a/backend/apps/plugin-cli) 打包：
