@@ -13,8 +13,9 @@ use serde_json::{Value, json};
 
 const MAXIMUM_BODY_BYTES: usize = 1024 * 1024;
 const MAXIMUM_HOST_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
-const RULE_FIELDS: [&str; 5] = [
+const RULE_FIELDS: [&str; 6] = [
     "schema_version",
+    "enabled_builtin_ids",
     "disabled_builtin_ids",
     "extra_keywords",
     "extra_regexes",
@@ -87,6 +88,7 @@ struct SaveRequest {
 #[derive(Deserialize)]
 struct Builtins {
     policy_version: String,
+    default_disabled_ids: Vec<String>,
     rules: Vec<Rule>,
 }
 
@@ -94,6 +96,7 @@ struct Builtins {
 struct BuiltinRule {
     #[serde(flatten)]
     rule: Rule,
+    default_enabled: bool,
     enabled: bool,
 }
 
@@ -264,21 +267,37 @@ fn catalog(configuration: GuardConfig, revision: u64) -> Result<Value, ApiError>
         .iter()
         .map(String::as_str)
         .collect();
+    let enabled: HashSet<&str> = configuration
+        .enabled_builtin_ids
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let default_disabled: HashSet<&str> = builtins
+        .default_disabled_ids
+        .iter()
+        .map(String::as_str)
+        .collect();
     let builtin_count = builtins.rules.len();
     let builtin_rules: Vec<BuiltinRule> = builtins
         .rules
         .into_iter()
-        .map(|rule| BuiltinRule {
-            enabled: !disabled.contains(rule.id.as_str()),
-            rule,
+        .map(|rule| {
+            let default_enabled = !default_disabled.contains(rule.id.as_str());
+            BuiltinRule {
+                enabled: (default_enabled || enabled.contains(rule.id.as_str()))
+                    && !disabled.contains(rule.id.as_str()),
+                default_enabled,
+                rule,
+            }
         })
         .collect();
+    let builtin_enabled = builtin_rules.iter().filter(|rule| rule.enabled).count();
     Ok(json!({
         "policy_version":builtins.policy_version,
         "revision":revision,
         "counts":{
             "builtin":builtin_count,
-            "builtin_enabled":builtin_count - disabled.len(),
+            "builtin_enabled":builtin_enabled,
             "keywords":configuration.extra_keywords.len(),
             "regexes":configuration.extra_regexes.len(),
             "custom":configuration.custom_rules.len(),
@@ -376,6 +395,7 @@ mod tests {
     #[test]
     fn catalog_describes_disabled_and_custom_rules_using_the_same_compiler() {
         let mut configuration = GuardConfig::default();
+        let baseline = compile(&configuration).unwrap().rule_count();
         let disabled = builtins().unwrap().rules[0].id.clone();
         configuration.disabled_builtin_ids.push(disabled.clone());
         configuration.extra_keywords.push("测试拒绝短语".into());
@@ -389,7 +409,71 @@ mod tests {
                 .iter()
                 .any(|rule| rule["id"] == disabled && rule["enabled"] == false)
         );
-        assert_eq!(catalog["counts"]["enabled"], catalog["counts"]["builtin"]);
+        assert_eq!(catalog["counts"]["enabled"], baseline);
+        assert_eq!(catalog["counts"]["builtin_enabled"], baseline - 1);
+    }
+
+    #[test]
+    fn catalog_keeps_optional_builtins_off_until_explicitly_enabled() {
+        let builtins = builtins().unwrap();
+        let configuration = GuardConfig::default();
+        let defaults = catalog(configuration.clone(), 1).unwrap();
+        let rules = defaults["builtin_rules"].as_array().unwrap();
+        assert_eq!(builtins.default_disabled_ids.len(), 8);
+        for rule in rules {
+            let default_enabled = !builtins
+                .default_disabled_ids
+                .iter()
+                .any(|id| rule["id"] == *id);
+            assert_eq!(rule["default_enabled"], default_enabled);
+            assert_eq!(rule["enabled"], default_enabled);
+        }
+        let baseline = builtins.rules.len() - builtins.default_disabled_ids.len();
+        assert_eq!(defaults["counts"]["builtin_enabled"], baseline);
+        assert_eq!(defaults["counts"]["enabled"], baseline);
+
+        let optional = builtins.default_disabled_ids[0].clone();
+        let selected = GuardConfig {
+            enabled_builtin_ids: vec![optional.clone()],
+            ..configuration
+        };
+        let active = catalog(selected, 2).unwrap();
+        assert!(
+            active["builtin_rules"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|rule| rule["id"] == optional
+                    && rule["default_enabled"] == false
+                    && rule["enabled"] == true)
+        );
+        assert_eq!(active["counts"]["builtin_enabled"], baseline + 1);
+        assert_eq!(active["counts"]["enabled"], baseline + 1);
+        let restored = catalog(GuardConfig::default(), 3).unwrap();
+        assert_eq!(restored["counts"]["builtin_enabled"], baseline);
+    }
+
+    #[test]
+    fn legacy_configuration_has_no_implicit_optional_builtin_selection() {
+        let legacy = extract_configuration(&json!({
+            "schema_version":1,
+            "disabled_builtin_ids":[],
+            "extra_keywords":[],
+            "extra_regexes":[],
+            "custom_rules":[],
+            "audit":{"capture_context":true}
+        }))
+        .unwrap();
+        assert!(legacy.enabled_builtin_ids.is_empty());
+        let catalog = catalog(legacy, 1).unwrap();
+        assert!(
+            catalog["builtin_rules"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|rule| rule["default_enabled"] == false)
+                .all(|rule| rule["enabled"] == false)
+        );
     }
 
     #[test]
@@ -404,6 +488,7 @@ mod tests {
             revision: 42,
         };
         let configuration = GuardConfig {
+            enabled_builtin_ids: vec![builtins().unwrap().default_disabled_ids[0].clone()],
             extra_keywords: vec!["new".into()],
             ..GuardConfig::default()
         };
@@ -417,9 +502,29 @@ mod tests {
         assert_eq!(instance["configuration"]["audit"]["capture_context"], false);
         assert_eq!(instance["configuration"]["future_option"]["keep"], true);
         assert_eq!(instance["configuration"]["extra_keywords"], json!(["new"]));
+        assert_eq!(
+            instance["configuration"]["enabled_builtin_ids"],
+            json!(configuration.enabled_builtin_ids)
+        );
         assert!(instance.get("secrets").is_none());
         let rules = extract_configuration(&instance["configuration"]).unwrap();
         assert_eq!(rules.extra_keywords, ["new"]);
+        assert_eq!(rules.enabled_builtin_ids, configuration.enabled_builtin_ids);
+        assert!(compile(&rules).is_ok());
+        let optional = configuration.enabled_builtin_ids[0].clone();
+        let mut saved = current;
+        saved.configuration = instance["configuration"].clone();
+        let reset = update_request(&saved, &GuardConfig::default()).unwrap();
+        let reset_rules = extract_configuration(&reset["instance"]["configuration"]).unwrap();
+        assert!(reset_rules.enabled_builtin_ids.is_empty());
+        let reset_catalog = catalog(reset_rules, 43).unwrap();
+        assert!(
+            reset_catalog["builtin_rules"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|rule| rule["id"] == optional && rule["enabled"] == false)
+        );
     }
 
     #[test]

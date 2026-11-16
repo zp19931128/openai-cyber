@@ -14,6 +14,7 @@ interface Row {
   source: 'builtin' | 'keyword' | 'regex' | 'custom'
   index: number
   enabled: boolean
+  defaultEnabled?: boolean
   pattern?: string
   rule?: GuardRule
 }
@@ -82,7 +83,7 @@ const rows = computed<Row[]>(() => {
   if (!snapshot.value || !draft.value)
     return []
   return [
-    ...snapshot.value.builtin_rules.map((rule, index) => ({ key: `builtin:${rule.id}`, id: rule.id, description: rule.description, category: rule.category, source: 'builtin' as const, index, enabled: !draft.value!.disabled_builtin_ids.includes(rule.id), rule })),
+    ...snapshot.value.builtin_rules.map((rule, index) => ({ key: `builtin:${rule.id}`, id: rule.id, description: rule.description, category: rule.category, source: 'builtin' as const, index, defaultEnabled: rule.default_enabled, enabled: (rule.default_enabled || draft.value!.enabled_builtin_ids.includes(rule.id)) && !draft.value!.disabled_builtin_ids.includes(rule.id), rule })),
     ...draft.value.extra_keywords.map((pattern, index) => ({ key: `keyword:${index}`, id: `custom.keyword.${index + 1}`, description: pattern, category: 'custom_keyword', source: 'keyword' as const, index, enabled: true, pattern })),
     ...draft.value.extra_regexes.map((pattern, index) => ({ key: `regex:${index}`, id: `custom.regex.${index + 1}`, description: pattern, category: 'custom_regex', source: 'regex' as const, index, enabled: true, pattern })),
     ...draft.value.custom_rules.map((rule, index) => ({ key: `custom:${rule.id}`, id: rule.id, description: rule.description, category: rule.category, source: 'custom' as const, index, enabled: true, rule })),
@@ -137,11 +138,14 @@ function requestReload() {
   else void load()
 }
 function toggle(row: Row, value: boolean) {
-  if (!draft.value || editLocked.value)
+  if (!draft.value || editLocked.value || row.source !== 'builtin')
     return
-  draft.value.disabled_builtin_ids = value
-    ? draft.value.disabled_builtin_ids.filter(id => id !== row.id)
-    : [...new Set([...draft.value.disabled_builtin_ids, row.id])]
+  draft.value.enabled_builtin_ids = draft.value.enabled_builtin_ids.filter(id => id !== row.id)
+  draft.value.disabled_builtin_ids = draft.value.disabled_builtin_ids.filter(id => id !== row.id)
+  if (value && !row.defaultEnabled)
+    draft.value.enabled_builtin_ids.push(row.id)
+  else if (!value && row.defaultEnabled)
+    draft.value.disabled_builtin_ids.push(row.id)
 }
 function openEditor(row?: Row) {
   if (editLocked.value)
@@ -396,7 +400,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-3 text-z-xs">
-            <span class="text-z-text-secondary">{{ sourceNames[row.source] }} · {{ categoryNames[row.category] ?? row.category }}</span><ZSwitch v-if="row.source === 'builtin'" :model-value="row.enabled" :label="row.enabled ? '已启用' : '已停用'" :aria-label="`${row.enabled ? '停用' : '启用'} ${row.id}`" :disabled="editLocked || editor" @update:model-value="toggle(row, $event)" /><span v-else class="text-z-success-text">已启用</span>
+            <span class="text-z-text-secondary">{{ sourceNames[row.source] }} · {{ categoryNames[row.category] ?? row.category }}</span><ZSwitch v-if="row.source === 'builtin'" :model-value="row.enabled" :label="row.enabled ? '已启用' : row.defaultEnabled === false ? '默认关闭' : '已停用'" :aria-label="`${row.enabled ? '停用' : '启用'} ${row.id}`" :disabled="editLocked || editor" @update:model-value="toggle(row, $event)" /><span v-else class="text-z-success-text">已启用</span>
           </div>
         </div>
         <details class="group min-w-0 text-z-xs">

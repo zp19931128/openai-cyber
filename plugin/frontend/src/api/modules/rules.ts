@@ -13,14 +13,15 @@ function rule(value: unknown): value is GuardRule {
     && typeof value.max_span_chars === 'number' && typeof value.word_boundaries === 'boolean'
 }
 function config(value: unknown): value is GuardConfig {
-  return record(value) && value.schema_version === 1 && strings(value.disabled_builtin_ids)
+  return record(value) && value.schema_version === 1
+    && strings(value.enabled_builtin_ids) && strings(value.disabled_builtin_ids)
     && strings(value.extra_keywords) && strings(value.extra_regexes)
     && Array.isArray(value.custom_rules) && value.custom_rules.every(rule)
 }
 function snapshot(value: unknown): RuleSnapshot {
   if (!record(value) || !Number.isSafeInteger(value.revision) || typeof value.policy_version !== 'string'
     || !config(value.configuration) || !Array.isArray(value.builtin_rules)
-    || !value.builtin_rules.every(item => rule(item) && record(item) && typeof item.enabled === 'boolean')
+    || !value.builtin_rules.every(item => rule(item) && record(item) && typeof item.enabled === 'boolean' && typeof item.default_enabled === 'boolean')
     || !record(value.counts)) {
     throw new Error('规则数据格式不正确，请检查插件版本')
   }

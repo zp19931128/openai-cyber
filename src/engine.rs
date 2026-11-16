@@ -33,6 +33,8 @@ pub struct GuardConfig {
     #[serde(default)]
     pub disabled_builtin_ids: Vec<String>,
     #[serde(default)]
+    pub enabled_builtin_ids: Vec<String>,
+    #[serde(default)]
     pub extra_keywords: Vec<String>,
     #[serde(default)]
     pub extra_regexes: Vec<String>,
@@ -45,6 +47,7 @@ impl Default for GuardConfig {
         Self {
             schema_version: SCHEMA_VERSION,
             disabled_builtin_ids: Vec::new(),
+            enabled_builtin_ids: Vec::new(),
             extra_keywords: Vec::new(),
             extra_regexes: Vec::new(),
             custom_rules: Vec::new(),
@@ -77,6 +80,8 @@ pub struct Match {
 struct Builtins {
     schema_version: u32,
     policy_version: String,
+    #[serde(default)]
+    default_disabled_ids: Vec<String>,
     rules: Vec<Rule>,
 }
 
@@ -107,11 +112,15 @@ struct Term {
 
 impl RuleSet {
     pub fn load(config: GuardConfig) -> Result<Self, String> {
+        let builtins: Builtins = serde_json::from_str(include_str!("../rules/builtin.json"))
+            .map_err(|_| "The embedded rule dictionary is invalid.".to_owned())?;
+        Self::load_builtins(config, builtins)
+    }
+
+    fn load_builtins(config: GuardConfig, builtins: Builtins) -> Result<Self, String> {
         if config.schema_version != SCHEMA_VERSION {
             return Err("Unsupported configuration schema_version; expected 1.".into());
         }
-        let builtins: Builtins = serde_json::from_str(include_str!("../rules/builtin.json"))
-            .map_err(|_| "The embedded rule dictionary is invalid.".to_owned())?;
         if builtins.schema_version != SCHEMA_VERSION || builtins.policy_version.is_empty() {
             return Err("The embedded rule dictionary version is invalid.".into());
         }
@@ -127,6 +136,15 @@ impl RuleSet {
 
         let builtin_ids: HashSet<&str> =
             builtins.rules.iter().map(|rule| rule.id.as_str()).collect();
+        let mut default_disabled = HashSet::new();
+        for id in &builtins.default_disabled_ids {
+            if !builtin_ids.contains(id.as_str()) {
+                return Err(format!("Unknown default-disabled builtin rule ID: {id}."));
+            }
+            if !default_disabled.insert(id.as_str()) {
+                return Err(format!("Duplicate default-disabled builtin rule ID: {id}."));
+            }
+        }
         let mut disabled = HashSet::new();
         for id in &config.disabled_builtin_ids {
             if !builtin_ids.contains(id.as_str()) {
@@ -136,13 +154,30 @@ impl RuleSet {
                 return Err(format!("Duplicate disabled builtin rule ID: {id}."));
             }
         }
+        let mut enabled = HashSet::new();
+        for id in &config.enabled_builtin_ids {
+            if !builtin_ids.contains(id.as_str()) {
+                return Err(format!("Unknown enabled builtin rule ID: {id}."));
+            }
+            if !enabled.insert(id.as_str()) {
+                return Err(format!("Duplicate enabled builtin rule ID: {id}."));
+            }
+            if disabled.contains(id.as_str()) {
+                return Err(format!(
+                    "Builtin rule ID cannot be both enabled and disabled: {id}."
+                ));
+            }
+        }
 
         let mut ids = HashSet::new();
         let mut rules = Vec::with_capacity(total);
         let mut term_count = 0;
         for rule in &builtins.rules {
             let compiled = compile_rule(rule, &mut ids, &mut term_count)?;
-            if !disabled.contains(rule.id.as_str()) {
+            if !disabled.contains(rule.id.as_str())
+                && (!default_disabled.contains(rule.id.as_str())
+                    || enabled.contains(rule.id.as_str()))
+            {
                 rules.push(compiled);
             }
         }
@@ -473,4 +508,57 @@ fn matches_groups(clause: &str, groups: &[Vec<Term>], max_span: usize, boundarie
         }
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Builtins, GuardConfig, RuleSet};
+    use serde_json::json;
+
+    fn dictionary(default_disabled_ids: Option<Vec<&str>>) -> Builtins {
+        let mut value = json!({
+            "schema_version": 1,
+            "policy_version": "test",
+            "rules": [{
+                "id": "test.builtin",
+                "category": "test",
+                "description": "test dictionary",
+                "all_groups": [["denied sample"]]
+            }]
+        });
+        if let Some(ids) = default_disabled_ids {
+            value["default_disabled_ids"] = json!(ids);
+        }
+        serde_json::from_value(value).unwrap()
+    }
+
+    #[test]
+    fn older_dictionaries_keep_existing_defaults() {
+        let rules = RuleSet::load_builtins(GuardConfig::default(), dictionary(None)).unwrap();
+        assert!(rules.check("denied sample").unwrap().is_some());
+    }
+
+    #[test]
+    fn invalid_default_disabled_metadata_rejects_the_dictionary() {
+        let unknown = RuleSet::load_builtins(
+            GuardConfig::default(),
+            dictionary(Some(vec!["test.unknown"])),
+        );
+        assert!(
+            unknown
+                .err()
+                .unwrap()
+                .contains("Unknown default-disabled builtin rule ID")
+        );
+        let duplicate = RuleSet::load_builtins(
+            GuardConfig::default(),
+            dictionary(Some(vec!["test.builtin", "test.builtin"])),
+        );
+        assert!(
+            duplicate
+                .err()
+                .unwrap()
+                .contains("Duplicate default-disabled builtin rule ID")
+        );
+    }
 }

@@ -44,11 +44,14 @@ export function installPreviewHost(): boolean {
   const theme = parameters.get('theme') === 'dark' ? 'dark' : 'light'
   applyTheme(document.documentElement, createTheme({ scheme: theme }))
 
-  let configuration: GuardConfig = { schema_version: 1, disabled_builtin_ids: [], extra_keywords: ['模拟拒绝短语'], extra_regexes: [], custom_rules: [] }
+  let configuration: GuardConfig = { schema_version: 1, enabled_builtin_ids: [], disabled_builtin_ids: [], extra_keywords: ['模拟拒绝短语'], extra_regexes: [], custom_rules: [] }
   let revision = 12
-  function catalog(): RuleSnapshot {
-    const builtinRules = builtin.rules.map(rule => ({ ...rule, enabled: !configuration.disabled_builtin_ids.includes(rule.id) }))
-    return { policy_version: builtin.policy_version, revision, configuration: JSON.parse(JSON.stringify(configuration)), builtin_rules: builtinRules, counts: { builtin: builtinRules.length, builtin_enabled: builtinRules.filter(rule => rule.enabled).length, keywords: configuration.extra_keywords.length, regexes: configuration.extra_regexes.length, custom: configuration.custom_rules.length, enabled: builtinRules.filter(rule => rule.enabled).length + configuration.extra_keywords.length + configuration.extra_regexes.length + configuration.custom_rules.length } }
+  function catalog(config = configuration): RuleSnapshot {
+    const builtinRules = builtin.rules.map((rule) => {
+      const defaultEnabled = !builtin.default_disabled_ids.includes(rule.id)
+      return { ...rule, default_enabled: defaultEnabled, enabled: (defaultEnabled || config.enabled_builtin_ids.includes(rule.id)) && !config.disabled_builtin_ids.includes(rule.id) }
+    })
+    return { policy_version: builtin.policy_version, revision, configuration: JSON.parse(JSON.stringify(config)), builtin_rules: builtinRules, counts: { builtin: builtinRules.length, builtin_enabled: builtinRules.filter(rule => rule.enabled).length, keywords: config.extra_keywords.length, regexes: config.extra_regexes.length, custom: config.custom_rules.length, enabled: builtinRules.filter(rule => rule.enabled).length + config.extra_keywords.length + config.extra_regexes.length + config.custom_rules.length } }
   }
   const host: PluginHost = {
     version: 2,
@@ -70,6 +73,8 @@ export function installPreviewHost(): boolean {
       else {
         const data = JSON.parse(input.body ?? '{}') as { configuration: GuardConfig, text?: string, expected_revision?: number }
         let invalid = ''
+        if (data.configuration.enabled_builtin_ids.some(id => data.configuration.disabled_builtin_ids.includes(id)))
+          invalid = '同一内置规则不能同时启用和停用'
         for (const pattern of data.configuration.extra_regexes) {
           try {
             const regex = new RegExp(pattern)
@@ -95,10 +100,10 @@ export function installPreviewHost(): boolean {
         }
         else if (input.path === 'api/rules/test') {
           const index = data.configuration.extra_keywords.findIndex(phrase => data.text?.includes(phrase))
-          body = { blocked: index >= 0, matched: index >= 0 ? { rule_id: `custom.keyword.${index + 1}`, category: 'custom_keyword', policy_version: builtin.policy_version } : null, rule_count: builtin.rules.length, policy_version: builtin.policy_version }
+          body = { blocked: index >= 0, matched: index >= 0 ? { rule_id: `custom.keyword.${index + 1}`, category: 'custom_keyword', policy_version: builtin.policy_version } : null, rule_count: catalog(data.configuration).counts.enabled, policy_version: builtin.policy_version }
         }
         else {
-          body = { valid: true, rule_count: builtin.rules.length, policy_version: builtin.policy_version }
+          body = { valid: true, rule_count: catalog(data.configuration).counts.enabled, policy_version: builtin.policy_version }
         }
       }
       const bytes = new TextEncoder().encode(JSON.stringify(body))

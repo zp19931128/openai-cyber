@@ -49,6 +49,7 @@ export interface GuardRule {
 
 export interface GuardConfig {
   schema_version: number
+  enabled_builtin_ids: string[]
   disabled_builtin_ids: string[]
   extra_keywords: string[]
   extra_regexes: string[]
@@ -59,7 +60,7 @@ export interface RuleSnapshot {
   policy_version: string
   revision: number
   configuration: GuardConfig
-  builtin_rules: (GuardRule & { enabled: boolean })[]
+  builtin_rules: (GuardRule & { default_enabled: boolean, enabled: boolean })[]
   counts: { builtin: number, builtin_enabled: number, keywords: number, regexes: number, custom: number, enabled: number }
 }
 

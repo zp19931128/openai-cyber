@@ -186,6 +186,19 @@ fn rejects_invalid_or_conflicting_configuration() {
         ..GuardConfig::default()
     };
     configs.push(duplicate_disabled);
+    configs.push(GuardConfig {
+        enabled_builtin_ids: vec!["nonexistent.rule".into()],
+        ..GuardConfig::default()
+    });
+    configs.push(GuardConfig {
+        enabled_builtin_ids: vec![builtin_ids()[0].clone(); 2],
+        ..GuardConfig::default()
+    });
+    configs.push(GuardConfig {
+        enabled_builtin_ids: vec![builtin_ids()[0].clone()],
+        disabled_builtin_ids: vec![builtin_ids()[0].clone()],
+        ..GuardConfig::default()
+    });
     configs.push(configured(vec![rule("test.empty", &[], 160)]));
     configs.push(configured(vec![rule("test.empty-group", &[&[]], 160)]));
     configs.push(configured(vec![rule(
@@ -287,7 +300,7 @@ fn does_not_expose_matched_text_in_a_decision() {
 }
 
 #[test]
-fn software_abuse_builtins_are_individually_selectable() {
+fn software_abuse_builtins_stay_off_until_individually_enabled() {
     let cases = [
         (
             "cyber.app-unpacking-piracy.zh.v1",
@@ -323,15 +336,31 @@ fn software_abuse_builtins_are_individually_selectable() {
         ),
     ];
     let defaults = RuleSet::load(GuardConfig::default()).unwrap();
+    let legacy_config: GuardConfig = serde_json::from_value(json!({
+        "schema_version": 1,
+        "disabled_builtin_ids": [],
+        "extra_keywords": [],
+        "extra_regexes": [],
+        "custom_rules": []
+    }))
+    .unwrap();
+    assert!(legacy_config.enabled_builtin_ids.is_empty());
+    let legacy = RuleSet::load(legacy_config).unwrap();
+    let mut enabled_config = GuardConfig::default();
     for (id, text) in cases {
-        let matched = defaults.check(text).unwrap().unwrap();
+        assert!(defaults.check(text).unwrap().is_none(), "default: {id}");
+        assert!(legacy.check(text).unwrap().is_none(), "legacy: {id}");
+        enabled_config.enabled_builtin_ids.push(id.to_owned());
+        let enabled = RuleSet::load(enabled_config.clone()).unwrap();
+        let matched = enabled.check(text).unwrap().unwrap();
         assert_eq!(matched.rule_id, id);
         assert_eq!(matched.category, "software_cracking");
-        let configured = RuleSet::load(GuardConfig {
-            disabled_builtin_ids: vec![id.to_owned()],
-            ..GuardConfig::default()
-        })
-        .unwrap();
+        let mut disabled_config = enabled_config.clone();
+        disabled_config
+            .enabled_builtin_ids
+            .retain(|value| value != id);
+        disabled_config.disabled_builtin_ids.push(id.to_owned());
+        let configured = RuleSet::load(disabled_config).unwrap();
         assert!(configured.check(text).unwrap().is_none(), "{id}");
         // 停用某个软件规则不能顺带停用已有的凭据窃取防护。
         assert!(
@@ -341,4 +370,8 @@ fn software_abuse_builtins_are_individually_selectable() {
                 .is_some()
         );
     }
+    assert_eq!(
+        RuleSet::load(enabled_config).unwrap().rule_count(),
+        defaults.rule_count() + cases.len()
+    );
 }
