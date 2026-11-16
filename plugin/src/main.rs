@@ -3,6 +3,7 @@
 mod audit;
 mod config;
 mod management;
+mod rules;
 
 use std::{sync::Arc, time::Duration};
 
@@ -25,6 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (config, audit_config) = config::parse(session.handshake().configuration.clone())?;
     let rules = Arc::new(RuleSet::load(config)?);
     let audit = Arc::new(audit::AuditStore::new(audit_config.capture_context));
+    let management_rules = Arc::new(rules::RulesService::new(session.handshake()));
     let middleware_audit = Arc::clone(&audit);
     let plugin = PluginBuilder::from_json(include_bytes!("../plugin.json"))?
         .middleware(move |call: RequestCall| {
@@ -81,7 +83,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         })?
         .management(management::registration(), move |call| {
-            management::handle(Arc::clone(&audit), call)
+            management::handle(Arc::clone(&audit), Arc::clone(&management_rules), call)
         })?
         .build()?;
     session.run(plugin).await?;

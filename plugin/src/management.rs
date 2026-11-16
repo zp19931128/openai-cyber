@@ -1,4 +1,4 @@
-//! 注册仅管理员可访问的拦截日志页面与查询接口
+//! 注册仅管理员可访问的规则管理和拦截日志页面接口
 
 use std::sync::Arc;
 
@@ -13,16 +13,29 @@ use gateway_plugin_sdk::{
 use serde::Serialize;
 use serde_json::json;
 
-use crate::audit::AuditStore;
+use crate::{audit::AuditStore, rules::RulesService};
 
 pub(crate) fn registration() -> ManagementRegistration {
     ManagementRegistration {
-        routes: vec![ManagementRoute {
-            method: "GET".into(),
-            path: "api/audit".into(),
-            request_content_types: Vec::new(),
+        routes: [
+            ("GET", "api/audit"),
+            ("GET", "api/rules"),
+            ("POST", "api/rules/validate"),
+            ("POST", "api/rules/test"),
+            ("POST", "api/rules/save"),
+        ]
+        .into_iter()
+        .map(|(method, path)| ManagementRoute {
+            method: method.into(),
+            path: path.into(),
+            request_content_types: if method == "POST" {
+                vec!["application/json".into()]
+            } else {
+                Vec::new()
+            },
             response_content_types: vec!["application/json".into()],
-        }],
+        })
+        .collect(),
         resources: ["web/index.html", "web/app.js", "web/app.css"]
             .into_iter()
             .map(|path| ManagementResource {
@@ -32,8 +45,8 @@ pub(crate) fn registration() -> ManagementRegistration {
             .collect(),
         pages: vec![ManagementPage {
             id: "audit".into(),
-            title: "拦截日志".into(),
-            description: Some("查看命中规则与本次请求的脱敏上下文".into()),
+            title: "规则与拦截日志".into(),
+            description: Some("配置内置与补充规则，测试命中效果并查看拦截上下文".into()),
             entry: "web/index.html".into(),
             icon: None,
         }],
@@ -43,8 +56,39 @@ pub(crate) fn registration() -> ManagementRegistration {
 
 pub(crate) async fn handle(
     store: Arc<AuditStore>,
+    rules: Arc<RulesService>,
     call: TypedCall<ManagementRequest>,
 ) -> Result<TypedReply<ManagementResponse>, PluginFault> {
+    if !rules.matches_instance(&call.context.instance_id) {
+        return reply(
+            403,
+            &json!({"error":{"code":"forbidden","message":"管理调用的插件实例不匹配"}}),
+        );
+    }
+    if call.request.path.starts_with("api/rules") {
+        if !call.request.query.is_empty()
+            || (call.request.method == "GET" && !call.payload.is_empty())
+            || (call.request.method == "POST"
+                && call.request.content_type.as_deref() != Some("application/json"))
+        {
+            return reply(
+                400,
+                &json!({"error":{"code":"invalid_request","message":"规则管理接口不接受查询参数且仅支持 JSON 正文"}}),
+            );
+        }
+        return match rules
+            .handle(
+                &call.host,
+                &call.request.method,
+                &call.request.path,
+                &call.payload,
+            )
+            .await
+        {
+            Ok(response) => reply(200, &response),
+            Err(error) => reply(error.status, &error.body),
+        };
+    }
     if call.request.method != "GET" || call.request.path != "api/audit" {
         return reply(
             404,
@@ -71,7 +115,7 @@ fn reply(
     value: &impl Serialize,
 ) -> Result<TypedReply<ManagementResponse>, PluginFault> {
     let payload = serde_json::to_vec(value)
-        .map_err(|_| PluginFault::new(ErrorCode::Fault, "拦截日志响应编码失败"))?;
+        .map_err(|_| PluginFault::new(ErrorCode::Fault, "插件管理响应编码失败"))?;
     Ok(TypedReply::new(ManagementResponse {
         status,
         content_type: "application/json".into(),

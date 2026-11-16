@@ -1,6 +1,7 @@
 // @env browser
-import type { AuditSnapshot, PluginHost } from '../api/types'
+import type { AuditSnapshot, GuardConfig, PluginHost, RuleSnapshot } from '../api/types'
 import { applyTheme, createTheme } from '@codex-proxy/ui/theme'
+import builtin from '../../../../rules/builtin.json'
 
 const categories = [
   ['credential_theft', 'cyber.credential_theft', '请求命中凭据窃取组合规则'],
@@ -43,16 +44,65 @@ export function installPreviewHost(): boolean {
   const theme = parameters.get('theme') === 'dark' ? 'dark' : 'light'
   applyTheme(document.documentElement, createTheme({ scheme: theme }))
 
+  let configuration: GuardConfig = { schema_version: 1, disabled_builtin_ids: [], extra_keywords: ['模拟拒绝短语'], extra_regexes: [], custom_rules: [] }
+  let revision = 12
+  function catalog(): RuleSnapshot {
+    const builtinRules = builtin.rules.map(rule => ({ ...rule, enabled: !configuration.disabled_builtin_ids.includes(rule.id) }))
+    return { policy_version: builtin.policy_version, revision, configuration: JSON.parse(JSON.stringify(configuration)), builtin_rules: builtinRules, counts: { builtin: builtinRules.length, builtin_enabled: builtinRules.filter(rule => rule.enabled).length, keywords: configuration.extra_keywords.length, regexes: configuration.extra_regexes.length, custom: configuration.custom_rules.length, enabled: builtinRules.filter(rule => rule.enabled).length + configuration.extra_keywords.length + configuration.extra_regexes.length + configuration.custom_rules.length } }
+  }
   const host: PluginHost = {
     version: 2,
     theme,
-    request: async () => {
+    request: async (input) => {
       await new Promise(resolve => window.setTimeout(resolve, mode === 'loading' ? 30000 : 160))
-      const body = mode === 'error'
-        ? { error: { code: 'state_unavailable', message: '无法读取日志存储，请稍后重试' } }
-        : mockSnapshot(mode === 'empty')
+      let status = 200
+      let body: unknown
+      if (mode === 'error') {
+        status = 503
+        body = { error: { code: 'unavailable', message: '模拟服务暂时不可用，请稍后重试' } }
+      }
+      else if (input.path === 'api/audit') {
+        body = mockSnapshot(mode === 'empty')
+      }
+      else if (input.path === 'api/rules') {
+        body = catalog()
+      }
+      else {
+        const data = JSON.parse(input.body ?? '{}') as { configuration: GuardConfig, text?: string, expected_revision?: number }
+        let invalid = ''
+        for (const pattern of data.configuration.extra_regexes) {
+          try {
+            const regex = new RegExp(pattern)
+            if (regex.test(''))
+              invalid = '正则不能匹配空文本'
+          }
+          catch { invalid = '无效正则表达式' }
+        }
+        if (invalid) {
+          status = 422
+          body = { error: { code: 'invalid_configuration', message: '规则配置无效', details: invalid } }
+        }
+        else if (input.path === 'api/rules/save') {
+          if (mode === 'conflict' || data.expected_revision !== revision) {
+            status = 409
+            body = { error: { code: 'conflict', message: '插件配置已变化，请重新加载后再保存' } }
+          }
+          else {
+            configuration = data.configuration
+            revision++
+            body = catalog()
+          }
+        }
+        else if (input.path === 'api/rules/test') {
+          const index = data.configuration.extra_keywords.findIndex(phrase => data.text?.includes(phrase))
+          body = { blocked: index >= 0, matched: index >= 0 ? { rule_id: `custom.keyword.${index + 1}`, category: 'custom_keyword', policy_version: builtin.policy_version } : null, rule_count: builtin.rules.length, policy_version: builtin.policy_version }
+        }
+        else {
+          body = { valid: true, rule_count: builtin.rules.length, policy_version: builtin.policy_version }
+        }
+      }
       const bytes = new TextEncoder().encode(JSON.stringify(body))
-      return { status: mode === 'error' ? 503 : 200, contentType: 'application/json', body: bytes.buffer }
+      return { status, contentType: 'application/json', body: bytes.buffer }
     },
   }
   Object.defineProperty(window, 'codexProxyPlugin', { configurable: true, value: host })

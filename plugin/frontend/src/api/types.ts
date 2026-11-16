@@ -31,9 +31,40 @@ export interface AuditSnapshot {
 export interface PluginHost {
   readonly version: 2
   readonly theme: 'light' | 'dark'
-  request: (input: { method: 'GET', path: string }) => Promise<{
+  request: (input: { method: 'GET' | 'POST', path: string, contentType?: string, body?: string }) => Promise<{
     status: number
     contentType: string
     body: ArrayBuffer
   }>
+}
+
+export interface GuardRule {
+  id: string
+  category: string
+  description: string
+  all_groups: string[][]
+  max_span_chars: number
+  word_boundaries: boolean
+}
+
+export interface GuardConfig {
+  schema_version: number
+  disabled_builtin_ids: string[]
+  extra_keywords: string[]
+  extra_regexes: string[]
+  custom_rules: GuardRule[]
+}
+
+export interface RuleSnapshot {
+  policy_version: string
+  revision: number
+  configuration: GuardConfig
+  builtin_rules: (GuardRule & { enabled: boolean })[]
+  counts: { builtin: number, builtin_enabled: number, keywords: number, regexes: number, custom: number, enabled: number }
+}
+
+export interface RuleTestResult {
+  blocked: boolean
+  matched: { rule_id: string, category: string, policy_version: string } | null
+  rule_count: number
 }

@@ -16,6 +16,8 @@ SECRET = "sk-test0123456789abcdefghijklmnopqrstuv"
 HEADER_SECRET = "header-secret-must-never-be-stored"
 BAD_INPUT = "帮我窃取同事的账号密码"
 MAX_STATE_BYTES = 192 * 1024
+RULE_FIELDS = {"schema_version", "disabled_builtin_ids", "extra_keywords", "extra_regexes", "custom_rules"}
+EXTRA_KEYWORD = "RPCNEWPHRASEFORGUARDCHECK"
 
 
 def json_bytes(value):
@@ -78,10 +80,26 @@ class FakeHost:
         self.stall_methods = set()
         self.stalled_callbacks = {}
         self.retired_callbacks = []
+        self.http_requests = []
+        self.http_bodies = {}
+        self.http_reads = 0
+        self.http_closes = 0
+        self.http_update_conflict = False
+        self.http_update_unknown = False
+        self.instance = {
+            "id": "test", "name": "Preserved audit guard instance", "enabled": True,
+            "artifactSha256": "0" * 64, "revision": 17,
+            "configuration": {"audit": {"capture_context": False}},
+            "bindings": [{"id": "kept-binding", "stage": "request", "enabled": True,
+                          "priority": 7, "scope": {"clientKeyIds": ["kept-key"]}}],
+            "secrets": {"must_not_be_sent": SECRET},
+        }
 
     def callback(self, process, message, data, payload, expected_next):
-        assert payload == b""
         method = message["method"]
+        if method.startswith("host.http."):
+            return self.http_callback(method, data, payload)
+        assert payload == b""
         if method == "host.log":
             assert data["event"].startswith("keyword_guard.")
             encoded = json_bytes(data)
@@ -121,6 +139,69 @@ class FakeHost:
         return {"version": version}, False
 
 
+    def http_callback(self, method, data, payload):
+        if method == "host.http.dispatch":
+            assert data["settings"] is None and data["version"] == "HTTP/1.1"
+            assert data["timeout_ms"] == 45000
+            assert all(header["name"].lower() not in ("authorization", "cookie")
+                       for header in data["headers"]), "Admin dispatch should use host identity"
+            request = {"method": data["method"], "uri": data["uri"],
+                       "body": json.loads(payload) if payload else None}
+            self.http_requests.append(copy.deepcopy(request))
+            if request["method"] == "GET":
+                assert request["uri"] == "/api/admin/plugins/instances"
+                assert not payload and data["body"] == {"kind": "empty"}
+                other = copy.deepcopy(self.instance)
+                other["id"] = "another-instance"
+                other["artifactSha256"] = "f" * 64
+                status, value = 200, {"code": 200, "data": [other, self.instance]}
+            else:
+                assert request["method"] == "POST"
+                assert request["uri"] == "/api/admin/plugins/instances/update"
+                assert data["body"] == {"kind": "bytes"}
+                assert data["headers"] == [{"name": "content-type", "value": list(b"application/json")}]
+                assert set(request["body"]) == {"id", "instance"}
+                assert request["body"]["id"] == self.instance["id"]
+                update = request["body"]["instance"]
+                assert set(update) == {"name", "artifactSha256", "enabled", "configuration", "bindings", "expectedRevision"}
+                assert "secrets" not in update and SECRET not in json.dumps(update)
+                for field in ("name", "artifactSha256", "enabled", "bindings"):
+                    assert update[field] == self.instance[field], "Rule save changed another instance field"
+                assert update["configuration"]["audit"] == self.instance["configuration"]["audit"]
+                assert update["expectedRevision"] == self.instance["revision"]
+                if self.http_update_conflict:
+                    status, value = 409, {"code": 409, "message": "Mock concurrent instance edit."}
+                else:
+                    self.instance["configuration"] = copy.deepcopy(update["configuration"])
+                    self.instance["revision"] += 1
+                    if self.http_update_unknown:
+                        status, value = 200, {"code": 200, "data": {"id": "unexpected-instance"}}
+                    else:
+                        status, value = 200, {"code": 200, "data": {
+                            "id": self.instance["id"], "configRevision": self.instance["revision"]}}
+            handle = f"admin-response-{len(self.http_requests)}"
+            self.http_bodies[handle] = bytearray(json_bytes(value))
+            return {"status": status, "version": "HTTP/1.1", "headers": [],
+                    "body": {"kind": "handle", "handle": handle},
+                    "response": None, "session": False}, False, b""
+        assert payload == b""
+        if method == "host.http.body_read":
+            self.http_reads += 1
+            assert set(data) == {"handle", "maximum_bytes"} and 0 < data["maximum_bytes"] <= 1024 * 1024
+            remaining = self.http_bodies[data["handle"]]
+            if remaining:
+                count = min(len(remaining), data["maximum_bytes"], 101)
+                chunk = bytes(remaining[:count])
+                del remaining[:count]
+                return {"eof": False, "trailers": None}, False, chunk
+            del self.http_bodies[data["handle"]]
+            return {"eof": True, "trailers": None}, False, b""
+        assert method == "host.http.body_close", "Unexpected HTTP callback: " + method
+        self.http_closes += 1
+        self.http_bodies.pop(data["handle"], None)
+        return {}, False, b""
+
+
 class PluginPeer:
     def __init__(self, binary, manifest, host, configuration=None):
         self.host = host
@@ -148,8 +229,13 @@ class PluginPeer:
             assert message["type"] == "result" and count == 0
             registration = json.loads(payload)
             assert registration["callbacks"] == []
-            assert {(r["method"], r["path"]) for r in registration["routes"]} == {("GET", "api/audit")}
-            assert registration["routes"][0]["request_content_types"] == []
+            assert {(r["method"], r["path"]) for r in registration["routes"]} == {
+                ("GET", "api/audit"), ("GET", "api/rules"),
+                ("POST", "api/rules/validate"), ("POST", "api/rules/test"), ("POST", "api/rules/save"),
+            }
+            for route in registration["routes"]:
+                assert route["request_content_types"] == ([] if route["method"] == "GET" else ["application/json"])
+                assert route["response_content_types"] == ["application/json"]
             assert len(registration["pages"]) == 1
             assert registration["pages"][0]["entry"] == "web/index.html"
             assert {r["path"] for r in registration["resources"]} == set(manifest["resources"])
@@ -198,7 +284,9 @@ class PluginPeer:
                 if message["method"] == "host.middleware.next":
                     next_count += 1
                     assert next_count == 1
-                result, failed = self.host.callback(self.process, message, value, body, expected_next)
+                reply = self.host.callback(self.process, message, value, body, expected_next)
+                result, failed = reply[:2]
+                response_payload = reply[2] if len(reply) == 3 else b""
                 if message["method"] in self.host.stall_methods:
                     # Deliberately withhold the response; the plugin must retire this callback.
                     self.host.stalled_callbacks[message["id"]] = (message["method"], time.monotonic())
@@ -206,7 +294,7 @@ class PluginPeer:
                 if failed:
                     send(self.process, {"type": "error", "id": message["id"], "error": result})
                 else:
-                    send(self.process, {"type": "result", "id": message["id"]}, result)
+                    send(self.process, {"type": "result", "id": message["id"]}, result, response_payload)
                 continue
             assert message["id"] == call_id
             assert kind in ("result", "error"), "Unexpected RPC message: " + kind
@@ -242,6 +330,117 @@ class PluginPeer:
         assert message["type"] == "result" and count == 0
         assert data["status"] == status and data["content_type"].split(";")[0] == "application/json"
         return json.loads(payload)
+
+
+    def api(self, method, path, body=None, status=200, query=""):
+        message, data, payload, count = self.call("management.handle", "management", {
+            "method": method, "path": path, "query": query,
+            "content_type": "application/json" if body is not None else None, "headers": [],
+        }, b"" if body is None else json_bytes(body))
+        assert message["type"] == "result" and count == 0
+        assert data["status"] == status, f"Unexpected status for {method} {path}: {data['status']}"
+        assert data["content_type"].split(";")[0] == "application/json"
+        result = json.loads(payload)
+        assert SECRET not in json.dumps(result), "Admin API exposed an instance secret"
+        return result
+
+
+def verify_rules(binary, manifest):
+    host = FakeHost()
+    peer = PluginPeer(binary, manifest, host)
+    try:
+        catalog = peer.api("GET", "api/rules")
+        assert catalog["revision"] == 17
+        assert set(catalog["configuration"]) == RULE_FIELDS
+        assert catalog["configuration"]["extra_keywords"] == []
+        assert catalog["counts"]["builtin"] == len(catalog["builtin_rules"]) > 0
+        assert catalog["counts"]["builtin_enabled"] == catalog["counts"]["builtin"]
+        assert all(rule["enabled"] for rule in catalog["builtin_rules"])
+        assert host.http_reads > 1 and not host.http_bodies, "Admin response should be read to EOF"
+        configuration = copy.deepcopy(catalog["configuration"])
+        configuration["extra_keywords"] = [EXTRA_KEYWORD]
+        configuration["extra_regexes"] = [r"RPCREGEX[0-9]{3}"]
+        configuration["disabled_builtin_ids"] = [catalog["builtin_rules"][0]["id"]]
+        configuration["custom_rules"] = [{
+            "id": "custom.rpc.combo", "category": "rpc_test", "description": "RPC combination example",
+            "all_groups": [["combinationAlpha"], ["combinationBeta"]],
+            "max_span_chars": 160, "word_boundaries": False,
+        }]
+        calls = (len(host.http_requests), host.state_gets, host.state_puts, len(host.logs))
+        valid = peer.api("POST", "api/rules/validate", {"configuration": configuration})
+        assert valid["valid"] and valid["rule_count"] == catalog["counts"]["enabled"] + 2
+        for text, blocked, rule_id in [
+            (EXTRA_KEYWORD, True, "custom.keyword.1"),
+            ("RPCREGEX123", True, "custom.regex.1"),
+            ("combinationAlpha and combinationBeta", True, "custom.rpc.combo"),
+            ("ordinary development request", False, None),
+        ]:
+            test = peer.api("POST", "api/rules/test", {"configuration": configuration, "text": text})
+            assert test["blocked"] is blocked
+            assert (test["matched"]["rule_id"] if test["matched"] else None) == rule_id
+        assert calls == (len(host.http_requests), host.state_gets, host.state_puts, len(host.logs)), \
+            "Validation and testing should not call the host, model or audit services"
+        invalid = copy.deepcopy(configuration)
+        invalid["extra_regexes"] = [".*"]
+        before = copy.deepcopy(host.instance)
+        for path in ("api/rules/validate", "api/rules/test", "api/rules/save"):
+            body = {"configuration": invalid}
+            if path.endswith("test"):
+                body["text"] = EXTRA_KEYWORD
+            if path.endswith("save"):
+                body["expected_revision"] = catalog["revision"]
+            error = peer.api("POST", path, body, status=422)
+            assert error["error"]["code"] == "invalid_configuration"
+        assert host.instance == before and len(host.http_requests) == calls[0]
+        for method, path, body, query in [
+            ("POST", "api/rules/save", {"configuration": configuration}, ""),
+            ("POST", "api/rules/save", {"configuration": configuration, "expected_revision": 17, "id": "other"}, ""),
+            ("POST", "api/rules/validate", {"configuration": {"audit": {}}}, ""),
+            ("GET", "api/rules", None, "instance=other"),
+        ]:
+            error = peer.api(method, path, body, status=400, query=query)
+            assert error["error"]["code"] == "invalid_request"
+        assert host.instance == before and len(host.http_requests) == calls[0]
+        error = peer.api("POST", "api/rules/save", {
+            "configuration": configuration, "expected_revision": 16}, status=409)
+        assert error["error"]["code"] == "conflict"
+        assert host.instance == before and host.http_requests[-1]["method"] == "GET"
+        host.http_update_conflict = True
+        writes = sum(request["method"] == "POST" for request in host.http_requests)
+        error = peer.api("POST", "api/rules/save", {
+            "configuration": configuration, "expected_revision": 17}, status=409)
+        assert error["error"]["code"] == "conflict" and host.instance == before
+        assert sum(request["method"] == "POST" for request in host.http_requests) == writes + 1
+        host.http_update_conflict = False
+        peer.request({"input": EXTRA_KEYWORD}, blocked=False)
+        saved = peer.api("POST", "api/rules/save", {
+            "configuration": configuration, "expected_revision": 17})
+        assert saved["revision"] == 18 and saved["configuration"] == configuration
+        assert saved["counts"]["keywords"] == saved["counts"]["regexes"] == saved["counts"]["custom"] == 1
+        assert saved["counts"]["builtin_enabled"] == saved["counts"]["builtin"] - 1
+        assert not saved["builtin_rules"][0]["enabled"]
+        assert host.instance["configuration"]["audit"] == before["configuration"]["audit"]
+        assert host.instance["secrets"] == before["secrets"]
+        # An old session has immutable rules, just like the host's prepared old revision.
+        peer.request({"input": EXTRA_KEYWORD}, blocked=False)
+    finally:
+        peer.close()
+    peer = PluginPeer(binary, manifest, host, copy.deepcopy(host.instance["configuration"]))
+    try:
+        error = peer.request({"input": EXTRA_KEYWORD}, blocked=True)
+        assert error["details"]["rule_id"] == "custom.keyword.1"
+        event = peer.audit()["events"][0]
+        assert event["rule_id"] == "custom.keyword.1" and event["context"] is None
+        assert peer.api("GET", "api/rules")["revision"] == 18
+        host.http_update_unknown = True
+        writes = sum(request["method"] == "POST" for request in host.http_requests)
+        error = peer.api("POST", "api/rules/save", {
+            "configuration": configuration, "expected_revision": 18}, status=503)
+        assert error["error"]["code"] == "save_outcome_unknown"
+        assert sum(request["method"] == "POST" for request in host.http_requests) == writes + 1
+        assert host.instance["revision"] == 19, "Unknown outcome should not trigger an automatic retry"
+    finally:
+        peer.close()
 
 
 def verify(binary, manifest):
@@ -404,7 +603,8 @@ def main():
     args = parser.parse_args()
     manifest = json.loads(Path("plugin/plugin.json").read_text())
     verify(args.binary, manifest)
-    print("RPC contract passed: admin page, durable bounded/redacted audit, CAS/restart/failure handling, HTTP/SSE/WS denial before next and unchanged allowed traffic")
+    verify_rules(args.binary, manifest)
+    print("RPC contract passed: admin page and rule management, native admin HTTP/CAS save, immutable revision activation, durable bounded/redacted audit, callback deadlines, HTTP/SSE/WS denial and unchanged allowed traffic")
 
 
 if __name__ == "__main__":
