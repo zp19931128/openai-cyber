@@ -16,17 +16,17 @@
 
 ## CPR 插件
 
-插件使用官方公开 SDK，绑定 `request` 中间件，在 HTTP JSON、SSE 和 WS 每轮逻辑模型请求进入选路与上游发送前检查。适用格式为 OpenAI；不挂载管理后台。创建插件实例后必须设置并启用 `request` 绑定，故障策略选择拒绝，不能选择委托下游。
+插件使用官方公开 SDK，绑定 `request` 中间件，在 HTTP JSON、SSE 和 WS 每轮逻辑模型请求进入选路与上游发送前检查。适用格式为 OpenAI；管理页面仅供 CPR 管理员查看拦截记录。创建插件实例后必须设置并启用 `request` 绑定，故障策略选择拒绝，不能选择委托下游。
 
 每轮检查 JSON 中的字符串值，先解码 JSON 转义；同一消息相邻的文本块还会拼接检查。命中或无法检查时不调用 `next`，返回 SDK `Rejected`，发送状态为 `NotSent`。未命中时直接调用原始 `next`，不改写提示词、请求头、响应正文或流式协议。
 
 本轮包含的系统指令、工具定义、工具结果和引用材料也可能触发规则。插件不恢复 `previous_response_id` 指向的历史、不读取远程文件或图像，也不拼接不同消息；不能宣称识别跨轮拆分的意图。原始 JSON 请求上限 2 MiB，超过上限或解析失败直接拒绝。
 
-拒绝时调用宿主的有界日志服务，只发送请求 ID、规则 ID、类别和词库版本；日志可能被宿主限流、过滤或丢弃，不作为完整审计账本。错误不回显原始提示词或命中片段。
+拒绝时通过 `host.state.get/put` 保存有界审计记录，页面名为“拦截日志”，仅管理员可访问。`host.log` 只发送请求 ID、规则 ID、类别、词库版本和记录是否成功，不发送上下文；客户端错误也不回显原始提示词。
 
 清单将宿主范围限定为 `>=3.39.1, <=3.48.0`，已静态核对 3.39.1、3.40.0 和 3.48.0 的 manifest v2 / RPC v7 / middleware v6 合同；3.48.0 的 SDK 请求接口与构建所用提交一致。真实安装、绑定、WS 错误交付和流式透传须在目标宿主验收，编译与打包成功不代表线上已生效。安装插件意味着信任其全部代码，宿主不提供 OS 沙箱。
 
-插件配置采用下面相同的 JSON；保存配置后由宿主发布新的不可变会话，规则按会话编译一次。没有独立词库管理页面。
+插件配置采用下面相同的 JSON；保存配置后由宿主发布新的不可变会话，规则按会话编译一次。“拦截日志”页面支持搜索、类别筛选、分页和上下文详情；补充词库仍通过插件配置管理。
 
 ## 通过 GitHub 安装
 
@@ -35,13 +35,33 @@
 | 项目 | 值 |
 | --- | --- |
 | 仓库 | `zp19931128/openai-cyber` |
-| 标签 | `v0.1.1`，或留空查询最新稳定 Release |
-| 安装附件 | `wason.keyword-guard-0.1.1-x86_64-unknown-linux-gnu.tar.gz` |
+| 标签 | `v0.2.0`，或留空查询最新稳定 Release |
+| 安装附件 | `wason.keyword-guard-0.2.0-x86_64-unknown-linux-gnu.tar.gz` |
 | 适用环境 | Linux x86_64，CPR `3.39.1` 至 `3.48.0` |
 
 GitHub 安装读取 [Release 附件](https://github.com/zp19931128/openai-cyber/releases)，不从源码编译。自动生成的 Source code 归档不能安装。核对包摘要和版本后接受来源；首次安装会由 CPR 生成默认配置与绑定，核对 `request` 挂载已启用、作用范围正确、失败策略为拒绝。先在测试实例验证普通请求与拦截请求，再接入生产流量。
 
 仅此平台提供二进制，其他平台不能通过修改文件名安装。超出声明宿主范围时应先验证 SDK 合同，不能直接忽略兼容提示。下载遇到 GitHub API 限流时，可配置自己的下载认证，或从同一 Release 下载附件后使用“上传包”。
+
+## 拦截日志与上下文
+
+v0.2.0 增加管理页面。升级原插件实例后，在 CPR 插件页面入口打开“拦截日志”；保留原有配置，并核对实例启用、`request` 绑定及拒绝故障策略。旧版没有页面和上下文记录，无法补回升级前的上下文。空列表只能说明当前没有保留的记录，不能证明流量已经过插件。
+
+每条记录包含时间、请求 ID、客户端 Key ID（不是密钥）、模型、传输方式、命中规则、类别、词库版本和拒绝原因。展开详情可查看**该次请求携带的消息文本**及角色／字段位置，不通过 `previous_response_id` 获取历史；仅记录被拦截或无法检查的请求，正常放行请求不写审计状态。检查失败且正文无效或超限时不保存原始正文。
+
+默认保存上下文，每条最多 4000 个 Unicode 字符；屏蔽常见 `sk-`、Bearer、JWT、密码赋值和 PEM 私钥模式，不读取 HTTP 认证头、Cookie、图片或远程文件。脱敏只是常见格式识别，不能保证识别所有自定义秘密，请按实际敏感度关闭上下文保存。插件配置可增加：
+
+```json
+{"audit": {"capture_context": false}}
+```
+
+此选项属于 CPR 插件，离线规则工具不接受 `audit`。关闭仅影响之后的记录，不清除已经保存的上下文。
+
+审计由 CPR 的插件私有状态接口持久化，复用宿主已有存储，无额外 PostgreSQL、Redis 或审核 API。每个插件实例最多保留 100 条，整份 JSON 不超过 192 KiB，较早记录先淘汰，因此长上下文较多时可能不足 100 条。保留 7 天，在下一次读取或写入时清理过期记录，没有后台定时删除任务。删除插件实例或宿主状态会影响保留数据。
+
+日志写入是尽力记录：并发更新使用 CAS，最多重试 3 次；审计等待上限 400 毫秒，诊断日志等待上限 100 毫秒。存储失败、版本冲突或超时都不会放行原本应拒绝的请求。页面显示本次插件进程启动后的写入失败计数；重启后此诊断计数归零，持久记录仍由宿主保存。它是排查工具，不是不可丢失的合规审计账本。
+
+正常放行只执行原有词库匹配，不读写审计存储；被拦截请求增加上下文提取和通常两次宿主状态调用。500 毫秒是异步存储／日志的总等待上限，不是请求整体耗时承诺，词库匹配与 JSON 处理也占用 CPU，实际延迟需在目标实例测量。
 
 ## 补充规则
 
@@ -95,6 +115,9 @@ cargo test --locked
 插件要求 Rust 1.99.1；SDK 依赖固定至已存在的 Git commit，根目录离线工具支持 Rust 1.93。
 
 ```sh
+# Node >=24，pnpm 10.3.0，页面源码位于 plugin/frontend
+(cd plugin/frontend && pnpm install --frozen-lockfile && pnpm lint && pnpm build)
+cargo test --manifest-path plugin/Cargo.toml --locked
 cargo build --manifest-path plugin/Cargo.toml --release --locked --target x86_64-unknown-linux-gnu
 cargo fmt --manifest-path plugin/Cargo.toml -- --check
 cargo clippy --manifest-path plugin/Cargo.toml --all-targets --locked -- -D warnings
@@ -109,6 +132,7 @@ cpr-plugin package \
   --manifest plugin/plugin.json \
   --binary plugin/target/x86_64-unknown-linux-gnu/release/cpr-keyword-guard-plugin \
   --target x86_64-unknown-linux-gnu \
+  --resource-map web=frontend/dist \
   --output-dir dist
 ```
 

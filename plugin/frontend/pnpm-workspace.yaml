@@ -1,0 +1,8 @@
+autoInstallPeers: false
+packages:
+  - '.'
+
+# 固定标签的自有 UI 依赖通过 prepack 构建公开产物
+onlyBuiltDependencies:
+  - '@codex-proxy/ui'
+  - esbuild

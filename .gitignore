@@ -3,3 +3,5 @@
 /plugin/target*/
 /config/local.json
 /.runtime/
+/plugin/frontend/node_modules/
+/plugin/frontend/dist/

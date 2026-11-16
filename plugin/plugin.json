@@ -3,7 +3,7 @@
   "name": "keyword-guard",
   "displayName": "请求关键词拦截",
   "publisher": "wason",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "每轮请求前匹配内置和补充 Cyber 与通用滥用关键词规则",
   "license": "Apache-2.0",
   "engines": {
@@ -23,6 +23,9 @@
       "outputFormats": [
         "openai"
       ]
+    },
+    "management": {
+      "version": 2
     }
   },
   "configurationSchema": {
@@ -123,7 +126,133 @@
             }
           }
         }
+      },
+      "audit": {
+        "type": "object",
+        "title": "拦截审计",
+        "additionalProperties": false,
+        "default": {},
+        "properties": {
+          "capture_context": {
+            "type": "boolean",
+            "title": "保存脱敏后的请求上下文",
+            "default": true
+          }
+        }
       }
     }
-  }
+  },
+  "resources": {
+    "web/index.html": "text/html",
+    "web/app.js": "text/javascript",
+    "web/app.css": "text/css"
+  },
+  "state": [
+    {
+      "namespace": "audit",
+      "schemaVersion": 1,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "timestamp_ms",
+                "request_id",
+                "client_key_id",
+                "model",
+                "transport",
+                "rule_id",
+                "category",
+                "policy_version",
+                "reason",
+                "context",
+                "context_truncated"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "timestamp_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "request_id": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "client_key_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 128
+                },
+                "model": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 256
+                },
+                "transport": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "rule_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 128
+                },
+                "category": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 128
+                },
+                "policy_version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 128
+                },
+                "reason": {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                "context": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 4000
+                },
+                "context_truncated": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "maximumRecords": 1,
+      "maximumBytes": 262144,
+      "maximumValueBytes": 262144,
+      "migratesFrom": []
+    }
+  ]
 }
