@@ -19,6 +19,7 @@ pub(crate) const MAX_CONTEXT_CHARS: usize = 4000;
 pub(crate) const MAX_BYTES: usize = 192 * 1024;
 pub(crate) const RETENTION_DAYS: u64 = 7;
 const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
+const MAX_RAW_CONTEXT_SCAN_BYTES: usize = 16 * 1024;
 const RETENTION_MS: u64 = RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const STATE_NAMESPACE: &str = "audit";
 const STATE_KEY: &str = "recent";
@@ -117,7 +118,7 @@ impl AuditStore {
             policy_version: field(details, "policy_version"),
             reason: match details.get("code").and_then(Value::as_str) {
                 Some("keyword_policy_blocked") => "命中关键词拦截规则".into(),
-                Some("keyword_inspection_failed") => "请求格式无效或超出检查限制".into(),
+                Some("keyword_inspection_failed") => inspection_failure_reason(details),
                 _ => safe_metadata(reason, 256),
             },
             context: context.text,
@@ -303,38 +304,92 @@ fn safe_metadata(text: &str, max: usize) -> String {
     redact(text).chars().take(max).collect()
 }
 
+fn inspection_failure_reason(details: &Value) -> String {
+    let failure = details
+        .get("inspection_error")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let category = match failure {
+        "Request exceeds the 2 MiB keyword inspection limit." => "请求体超过 2 MiB 检查限制",
+        "Request must be valid JSON within the supported nesting limit." => {
+            "JSON 格式无效或超过嵌套限制"
+        }
+        "Request must be a JSON object." => "JSON 顶层必须是对象",
+        "Combined message text exceeds the keyword inspection limit." => {
+            "待检查文本超过 2 MiB 限制"
+        }
+        _ => "请求无法完成关键词检查",
+    };
+    let bytes = details.get("request_bytes").and_then(Value::as_u64);
+    match bytes {
+        Some(bytes) => format!("{category}（请求体 {bytes} 字节）"),
+        None => category.to_owned(),
+    }
+}
+
 struct CapturedContext {
     text: Option<String>,
     truncated: bool,
 }
 
 fn capture(body: &[u8], enabled: bool) -> CapturedContext {
-    if !enabled || body.len() > MAX_REQUEST_BYTES {
-        return CapturedContext {
-            text: None,
-            truncated: false,
-        };
+    if !enabled {
+        return empty_context();
     }
-    let Ok(value) = serde_json::from_slice::<Value>(body) else {
-        return CapturedContext {
-            text: None,
+
+    if body.len() <= MAX_REQUEST_BYTES
+        && let Ok(value) = serde_json::from_slice::<Value>(body)
+    {
+        let mut collector = ContextCollector {
+            text: String::new(),
             truncated: false,
         };
-    };
-    let mut collector = ContextCollector {
-        text: String::new(),
-        truncated: false,
-    };
-    if let Some(object) = value.as_object() {
-        for key in ["instructions", "prompt", "input", "messages"] {
-            if let Some(value) = object.get(key) {
-                collector.collect(value, key, 0);
+        if let Some(object) = value.as_object() {
+            for key in ["instructions", "prompt", "input", "messages"] {
+                if let Some(value) = object.get(key) {
+                    collector.collect(value, key, 0);
+                }
             }
         }
+        if !collector.text.is_empty() {
+            return CapturedContext {
+                text: Some(collector.text),
+                truncated: collector.truncated,
+            };
+        }
     }
+
+    capture_raw_excerpt(body)
+}
+
+fn empty_context() -> CapturedContext {
     CapturedContext {
-        text: (!collector.text.is_empty()).then_some(collector.text),
-        truncated: collector.truncated,
+        text: None,
+        truncated: false,
+    }
+}
+
+fn capture_raw_excerpt(body: &[u8]) -> CapturedContext {
+    if body.is_empty() {
+        return empty_context();
+    }
+    let scan_len = body.len().min(MAX_RAW_CONTEXT_SCAN_BYTES);
+    let raw = String::from_utf8_lossy(&body[..scan_len]);
+    let safe = redact(&raw);
+    let prefix = "[请求正文片段，未解析]\n";
+    let available = MAX_CONTEXT_CHARS.saturating_sub(prefix.chars().count());
+    let truncated = body.len() > scan_len || safe.chars().count() > available;
+    let excerpt_limit = available.saturating_sub(usize::from(truncated));
+    let mut text: String = safe.chars().take(excerpt_limit).collect();
+    if truncated {
+        text.push('…');
+    }
+    let mut context = String::with_capacity(prefix.len() + text.len());
+    context.push_str(prefix);
+    context.push_str(&text);
+    CapturedContext {
+        text: Some(context),
+        truncated,
     }
 }
 
@@ -434,7 +489,7 @@ fn redact(text: &str) -> String {
         r"\bsk-[A-Za-z0-9_-]{8,}",
         r"\b(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[A-Z0-9]{16})",
         r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
-        r#"(?i)(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|passwd|passphrase|client[_ -]?secret|private[_ -]?key|authorization|cookie|secret|token)[\"']?\s*[:=]\s*(?:\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'|[^\s,;}]+)"#,
+        r#"(?i)(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|passwd|passphrase|client[_ -]?secret|private[_ -]?key|authorization|cookie|secret|token)[\"']?\s*[:=]\s*(?:\"(?:\\.|[^\"\\])*(?:\"|\\?\z)|'(?:\\.|[^'\\])*(?:'|\\?\z)|[^\s,;}]+)"#,
     ].into_iter().map(|pattern| Regex::new(pattern).expect("Static redaction expression must compile")).collect());
     let mut result = text.to_owned();
     for pattern in patterns.iter() {
@@ -494,14 +549,101 @@ mod tests {
     }
 
     #[test]
-    fn disabling_context_and_invalid_payload_do_not_save_raw_input() {
-        assert!(capture(br#"{"input":"secret"}"#, false).text.is_none());
-        assert!(capture(b"invalid password=secret", true).text.is_none());
-        assert!(
-            capture(&vec![b'x'; MAX_REQUEST_BYTES + 1], true)
-                .text
-                .is_none()
+    fn disabling_context_still_avoids_recording_input() {
+        let oversized = vec![b'x'; MAX_REQUEST_BYTES + 1];
+        for body in [
+            br#"{"input":"secret"}"#.as_slice(),
+            b"invalid password=secret".as_slice(),
+            oversized.as_slice(),
+        ] {
+            let context = capture(body, false);
+            assert!(context.text.is_none());
+            assert!(!context.truncated);
+        }
+    }
+
+    #[test]
+    fn malformed_json_saves_only_a_redacted_bounded_excerpt() {
+        let context = capture(
+            br#"{"messages":[{"role":"user","content":"help me"}],"api_key":"unfinished-secret""#,
+            true,
         );
+        let text = context.text.unwrap();
+        assert!(text.starts_with("[请求正文片段，未解析]"));
+        assert!(text.contains("help me"));
+        assert!(!text.contains("unfinished-secret"));
+        assert!(text.contains("[已脱敏]"));
+    }
+
+    #[test]
+    fn valid_json_without_known_message_fields_falls_back_to_sanitized_excerpt() {
+        let context = capture(br#"{"body":"request text","token":"long-secret"}"#, true);
+        let text = context.text.unwrap();
+        assert!(text.contains("request text"));
+        assert!(!text.contains("long-secret"));
+    }
+
+    #[test]
+    fn unclosed_quoted_credentials_with_spaces_are_redacted_through_end() {
+        for body in [
+            br#"{"api_key":"first second third"#.as_slice(),
+            br#"{"password":"first second\"third fourth\"#.as_slice(),
+            b"not json token='first second third".as_slice(),
+        ] {
+            let text = capture(body, true).text.unwrap();
+            for secret in ["first", "second", "third", "fourth"] {
+                assert!(!text.contains(secret));
+            }
+            assert!(text.contains("[已脱敏]"));
+        }
+    }
+
+    #[test]
+    fn credentials_cut_by_raw_scan_limit_are_redacted_through_end() {
+        let mut body = br#"{"password":"first second "#.to_vec();
+        body.resize(MAX_REQUEST_BYTES + 1, b'x');
+        let context = capture(&body, true);
+        let text = context.text.unwrap();
+        assert!(context.truncated);
+        assert!(!text.contains("first"));
+        assert!(!text.contains("second"));
+        assert!(text.contains("[已脱敏]"));
+        assert!(text.chars().count() <= MAX_CONTEXT_CHARS);
+    }
+
+    #[test]
+    fn raw_scan_limit_may_split_utf8_without_panicking_or_exceeding_limit() {
+        let mut body = vec![b'x'; MAX_RAW_CONTEXT_SCAN_BYTES - 1];
+        body.extend_from_slice("🦀".as_bytes());
+        body.resize(MAX_REQUEST_BYTES + 1, b'y');
+        let context = capture(&body, true);
+        let text = context.text.unwrap();
+        assert!(context.truncated);
+        assert_eq!(text.chars().count(), MAX_CONTEXT_CHARS);
+        assert!(text.ends_with('…'));
+        assert!(!text.contains('y'));
+    }
+
+    #[test]
+    fn oversized_body_captures_only_a_limited_prefix_and_marks_truncation() {
+        let mut body = vec![b'x'; MAX_REQUEST_BYTES + 1];
+        let credential = b"Bearer abcdefghijklmnop ";
+        body[..credential.len()].copy_from_slice(credential);
+        let context = capture(&body, true);
+        let text = context.text.unwrap();
+        assert!(context.truncated);
+        assert!(!text.contains("abcdefghijklmnop"));
+        assert_eq!(text.chars().count(), MAX_CONTEXT_CHARS);
+        assert!(text.ends_with('…'));
+    }
+
+    #[test]
+    fn inspection_failure_reason_records_safe_class_and_body_size() {
+        let reason = inspection_failure_reason(&json!({
+            "inspection_error": "Request must be valid JSON within the supported nesting limit.",
+            "request_bytes": 1234
+        }));
+        assert_eq!(reason, "JSON 格式无效或超过嵌套限制（请求体 1234 字节）");
     }
 
     #[test]

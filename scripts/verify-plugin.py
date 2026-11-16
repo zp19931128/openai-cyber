@@ -515,8 +515,23 @@ def verify(binary, manifest):
         peer.audit(status=503)
         host.fail_get = False
         assert any(log["fields"].get("audit_recorded") is False for log in host.logs)
-        peer.request(b"{invalid-json", raw=True)
-        assert peer.audit()["events"][0]["rule_id"] is None
+        malformed = ('{"input":"' + CONTEXT_MARKER + '","api_key":"' + SECRET).encode()
+        failure = peer.request(malformed, raw=True)
+        assert failure["details"]["request_bytes"] == len(malformed)
+        assert failure["details"]["inspection_error"] == "Request must be valid JSON within the supported nesting limit."
+        event = peer.audit()["events"][0]
+        assert event["rule_id"] is None
+        assert CONTEXT_MARKER in event["context"] and SECRET not in event["context"]
+        assert "JSON 格式无效或超过嵌套限制" in event["reason"]
+        assert str(len(malformed)) in event["reason"]
+        oversized = ('{"input":"' + CONTEXT_MARKER + '","api_key":"' + SECRET + '"}').encode()
+        oversized += b' ' * (2 * 1024 * 1024 + 1 - len(oversized))
+        failure = peer.request(oversized, raw=True)
+        assert failure["details"]["request_bytes"] == len(oversized)
+        event = peer.audit()["events"][0]
+        assert "请求体超过 2 MiB 检查限制" in event["reason"]
+        assert CONTEXT_MARKER in event["context"] and SECRET not in event["context"]
+        assert event["context_truncated"] and len(event["context"]) <= 4000
         peer.request({"input": BAD_INPUT + "中" * 6000})
         event = peer.audit()["events"][0]
         assert event["context_truncated"], "Oversized context was not marked as truncated"
