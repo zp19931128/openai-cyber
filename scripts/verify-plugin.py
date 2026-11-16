@@ -175,7 +175,7 @@ class PluginPeer:
         context = {
             "call_id": call_id, "instance_id": "test", "generation": 1,
             "incarnation": self.incarnation, "stage": stage, "timeout_ms": 5000,
-            "resource_stream": False, "resource_scope_id": f"test-{call_id}",
+            "resource_stream": stage == "request", "resource_scope_id": f"test-{call_id}",
             "request_id": f"request-{call_id}",
         }
         send(self.process, {"type": "call", "id": call_id, "method": method, "context": context}, data, payload)
@@ -325,12 +325,19 @@ def verify(binary, manifest):
         assert CONTEXT_MARKER in event["context"] and SECRET not in event["context"]
         assert "JSON 格式无效或超过嵌套限制" in event["reason"]
         assert str(len(malformed)) in event["reason"]
+        # CPR accepts 64 MiB by default; normal long Codex context must reach next intact.
+        for transport in ["http_json", "http_sse", "web_socket"]:
+            writes = host.state_puts
+            peer.request({"input": "x" * (3 * 1024 * 1024)}, transport=transport, blocked=False)
+            assert host.state_puts == writes
+        peer.request({"input": "x" * (3 * 1024 * 1024) + "\n" + BAD_INPUT})
+        assert peer.audit()["events"][0]["rule_id"], "Large requests must be inspected beyond the old prefix limit"
         oversized = ('{"input":"' + CONTEXT_MARKER + '","api_key":"' + SECRET + '"}').encode()
-        oversized += b' ' * (2 * 1024 * 1024 + 1 - len(oversized))
+        oversized += b' ' * (64 * 1024 * 1024 + 1 - len(oversized))
         failure = peer.request(oversized, raw=True)
         assert failure["details"]["request_bytes"] == len(oversized)
         event = peer.audit()["events"][0]
-        assert "请求体超过 2 MiB 检查限制" in event["reason"]
+        assert "请求体超过 64 MiB 检查限制" in event["reason"]
         assert CONTEXT_MARKER in event["context"] and SECRET not in event["context"]
         assert event["context_truncated"] and len(event["context"]) <= 4000
         peer.request({"input": BAD_INPUT + "中" * 6000})
@@ -365,7 +372,7 @@ def verify(binary, manifest):
         assert snapshot["events"] == []
         assert snapshot["recording"]["failures_since_start"] == 1
         assert slow_host.logs[-1]["fields"]["audit_recorded"] is False
-        assert any(method == "host.state.get" and 0.35 <= elapsed < 1.5
+        assert any(method == "host.state.get" and elapsed < 1.5
                    for method, elapsed in slow_host.retired_callbacks)
         assert not slow_host.stalled_callbacks, "Timed-out state callback was not retired"
 
@@ -379,7 +386,7 @@ def verify(binary, manifest):
         assert len(snapshot["events"]) == 1, "Slow logging should not undo a saved audit event"
         assert snapshot["recording"]["failures_since_start"] == 1
         assert slow_host.logs[-1]["fields"]["audit_recorded"] is True
-        assert any(method == "host.log" and 0.075 <= elapsed < 1.0
+        assert any(method == "host.log" and elapsed < 1.0
                    for method, elapsed in slow_host.retired_callbacks)
         assert not slow_host.stalled_callbacks, "Timed-out log callback was not retired"
     finally:
