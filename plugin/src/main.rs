@@ -40,10 +40,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 403,
                                 json!({"code": "keyword_policy_blocked", "rule_id": matched.rule_id, "category": matched.category, "policy_version": matched.policy_version}),
                             ),
-                            Err(_) => (
+                            Err(error) => (
                                 "Request could not be inspected by keyword policy.",
                                 400,
-                                json!({"code": "keyword_inspection_failed"}),
+                                json!({
+                                    "code": "keyword_inspection_failed",
+                                    "inspection_error": error,
+                                    "request_bytes": call.request.body.len(),
+                                }),
                             ),
                             Ok(None) => unreachable!(),
                         };
