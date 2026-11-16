@@ -18,7 +18,8 @@ pub(crate) const MAX_EVENTS: usize = 100;
 pub(crate) const MAX_CONTEXT_CHARS: usize = 4000;
 pub(crate) const MAX_BYTES: usize = 192 * 1024;
 pub(crate) const RETENTION_DAYS: u64 = 7;
-const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
+// 上下文提取单独限制解析成本，不限制请求检查器可接受的正文大小。
+const MAX_JSON_CONTEXT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_RAW_CONTEXT_SCAN_BYTES: usize = 16 * 1024;
 const RETENTION_MS: u64 = RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const STATE_NAMESPACE: &str = "audit";
@@ -305,22 +306,33 @@ fn safe_metadata(text: &str, max: usize) -> String {
 }
 
 fn inspection_failure_reason(details: &Value) -> String {
+    let bytes = details.get("request_bytes").and_then(Value::as_u64);
+    if bytes == Some(0) {
+        return "插件未收到请求正文（0 字节），无法进行规则检查".into();
+    }
     let failure = details
         .get("inspection_error")
         .and_then(Value::as_str)
         .unwrap_or_default();
     let category = match failure {
         "Request exceeds the 2 MiB keyword inspection limit." => "请求体超过 2 MiB 检查限制",
+        "Request exceeds the 64 MiB keyword inspection limit."
+        | "Request exceeds the 67108864-byte keyword inspection limit." => {
+            "请求体超过 64 MiB 检查限制"
+        }
         "Request must be valid JSON within the supported nesting limit." => {
             "JSON 格式无效或超过嵌套限制"
         }
         "Request must be a JSON object." => "JSON 顶层必须是对象",
         "Combined message text exceeds the keyword inspection limit." => {
-            "待检查文本超过 2 MiB 限制"
+            "拼接后的消息文本超过检查上限"
+        }
+        "Text exceeds the 67108864-byte inspection limit." => "单条消息文本超过 64 MiB 检查限制",
+        "Normalized text exceeds the 67108864-byte inspection limit." => {
+            "规范化后的消息文本超过 64 MiB 检查限制"
         }
         _ => "请求无法完成关键词检查",
     };
-    let bytes = details.get("request_bytes").and_then(Value::as_u64);
     match bytes {
         Some(bytes) => format!("{category}（请求体 {bytes} 字节）"),
         None => category.to_owned(),
@@ -337,7 +349,7 @@ fn capture(body: &[u8], enabled: bool) -> CapturedContext {
         return empty_context();
     }
 
-    if body.len() <= MAX_REQUEST_BYTES
+    if body.len() <= MAX_JSON_CONTEXT_BYTES
         && let Ok(value) = serde_json::from_slice::<Value>(body)
     {
         let mut collector = ContextCollector {
@@ -550,7 +562,7 @@ mod tests {
 
     #[test]
     fn disabling_context_still_avoids_recording_input() {
-        let oversized = vec![b'x'; MAX_REQUEST_BYTES + 1];
+        let oversized = vec![b'x'; MAX_JSON_CONTEXT_BYTES + 1];
         for body in [
             br#"{"input":"secret"}"#.as_slice(),
             b"invalid password=secret".as_slice(),
@@ -601,7 +613,7 @@ mod tests {
     #[test]
     fn credentials_cut_by_raw_scan_limit_are_redacted_through_end() {
         let mut body = br#"{"password":"first second "#.to_vec();
-        body.resize(MAX_REQUEST_BYTES + 1, b'x');
+        body.resize(MAX_JSON_CONTEXT_BYTES + 1, b'x');
         let context = capture(&body, true);
         let text = context.text.unwrap();
         assert!(context.truncated);
@@ -615,7 +627,7 @@ mod tests {
     fn raw_scan_limit_may_split_utf8_without_panicking_or_exceeding_limit() {
         let mut body = vec![b'x'; MAX_RAW_CONTEXT_SCAN_BYTES - 1];
         body.extend_from_slice("🦀".as_bytes());
-        body.resize(MAX_REQUEST_BYTES + 1, b'y');
+        body.resize(MAX_JSON_CONTEXT_BYTES + 1, b'y');
         let context = capture(&body, true);
         let text = context.text.unwrap();
         assert!(context.truncated);
@@ -626,7 +638,7 @@ mod tests {
 
     #[test]
     fn oversized_body_captures_only_a_limited_prefix_and_marks_truncation() {
-        let mut body = vec![b'x'; MAX_REQUEST_BYTES + 1];
+        let mut body = vec![b'x'; MAX_JSON_CONTEXT_BYTES + 1];
         let credential = b"Bearer abcdefghijklmnop ";
         body[..credential.len()].copy_from_slice(credential);
         let context = capture(&body, true);
@@ -644,6 +656,17 @@ mod tests {
             "request_bytes": 1234
         }));
         assert_eq!(reason, "JSON 格式无效或超过嵌套限制（请求体 1234 字节）");
+        assert_eq!(
+            inspection_failure_reason(&json!({"request_bytes": 0})),
+            "插件未收到请求正文（0 字节），无法进行规则检查"
+        );
+        assert_eq!(
+            inspection_failure_reason(&json!({
+                "inspection_error": "Request exceeds the 64 MiB keyword inspection limit.",
+                "request_bytes": 67108865
+            })),
+            "请求体超过 64 MiB 检查限制（请求体 67108865 字节）"
+        );
     }
 
     #[test]

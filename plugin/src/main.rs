@@ -7,7 +7,10 @@ mod rules;
 
 use std::{sync::Arc, time::Duration};
 
-use cpr_keyword_guard::{engine::RuleSet, request::inspect_json};
+use cpr_keyword_guard::{
+    engine::RuleSet,
+    request::{MAX_REQUEST_BYTES, inspect_json},
+};
 use gateway_plugin_sdk::{
     ErrorCode, PluginFault,
     call::host::{self, LogLevel, LogRequest},
@@ -49,6 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     "code": "keyword_inspection_failed",
                                     "inspection_error": error,
                                     "request_bytes": call.request.body.len(),
+                                    "inspection_limit_bytes": MAX_REQUEST_BYTES,
                                 }),
                             ),
                             Ok(None) => unreachable!(),
@@ -63,7 +67,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             audit.record_failure();
                         }
                         let log = LogRequest {
-                            event: "keyword_guard.denied".into(),
+                            event: if details["code"] == "keyword_inspection_failed" {
+                                "keyword_guard.inspection_failed"
+                            } else {
+                                "keyword_guard.denied"
+                            }.into(),
                             level: LogLevel::Warn,
                             fields: std::collections::BTreeMap::from([
                                 ("request_id".into(), json!(call.request.head.request_id)),

@@ -253,6 +253,27 @@ fn rejects_oversized_input_instead_of_inspecting_a_prefix() {
 }
 
 #[test]
+fn normalization_uses_the_byte_limit_without_changing_the_default_text_contract() {
+    let rules = RuleSet::load(isolated(Vec::new())).unwrap();
+    let maximum = 2 * 1024 * 1024;
+    // ㍿ 由 3 个 UTF-8 字节规范化为 12 个字节的「株式会社」。
+    let mut exact = "x".repeat(maximum - "株式会社".len());
+    exact.push('㍿');
+    assert!(exact.len() < maximum);
+    assert!(rules.check(&exact).unwrap().is_none());
+    exact.push('x');
+    assert!(exact.len() < maximum);
+    assert_eq!(
+        rules.check(&exact).unwrap_err(),
+        format!("Normalized text exceeds the {maximum}-byte inspection limit.")
+    );
+    assert_eq!(
+        rules.check(&"x".repeat(maximum + 1)).unwrap_err(),
+        format!("Text exceeds the {maximum}-byte inspection limit.")
+    );
+}
+
+#[test]
 fn does_not_expose_matched_text_in_a_decision() {
     let mut config = isolated(Vec::new());
     config.extra_keywords = vec!["sensitive-marker".into()];

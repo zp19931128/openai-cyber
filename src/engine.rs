@@ -195,17 +195,20 @@ impl RuleSet {
     }
 
     pub fn check(&self, text: &str) -> Result<Option<Match>, String> {
-        if text.len() > MAX_TEXT_BYTES {
+        self.check_with_limit(text, MAX_TEXT_BYTES)
+    }
+
+    pub(crate) fn check_with_limit(
+        &self,
+        text: &str,
+        maximum_bytes: usize,
+    ) -> Result<Option<Match>, String> {
+        if text.len() > maximum_bytes {
             return Err(format!(
-                "Text exceeds the {MAX_TEXT_BYTES}-byte inspection limit."
+                "Text exceeds the {maximum_bytes}-byte inspection limit."
             ));
         }
-        let text = normalize(text);
-        if text.len() > MAX_TEXT_BYTES {
-            return Err(format!(
-                "Normalized text exceeds the {MAX_TEXT_BYTES}-byte inspection limit."
-            ));
-        }
+        let text = normalize_bounded(text, maximum_bytes)?;
         for rule in &self.rules {
             for clause in text
                 .split(is_clause_boundary)
@@ -332,6 +335,10 @@ fn valid_identifier(value: &str, max_bytes: usize) -> bool {
 }
 
 fn normalize(text: &str) -> String {
+    normalized_characters(text).collect()
+}
+
+fn normalized_characters(text: &str) -> impl Iterator<Item = char> + '_ {
     text.nfkc()
         .filter(|character| {
             !matches!(
@@ -340,7 +347,34 @@ fn normalize(text: &str) -> String {
             )
         })
         .flat_map(char::to_lowercase)
-        .collect()
+}
+
+fn normalize_bounded(text: &str, maximum_bytes: usize) -> Result<String, String> {
+    let mut normalized = String::new();
+    normalized
+        .try_reserve_exact(text.len().min(maximum_bytes))
+        .map_err(|_| "Cannot allocate bounded keyword inspection text.".to_owned())?;
+    for character in normalized_characters(text) {
+        let next_length = normalized.len().saturating_add(character.len_utf8());
+        if next_length > maximum_bytes {
+            return Err(format!(
+                "Normalized text exceeds the {maximum_bytes}-byte inspection limit."
+            ));
+        }
+        if next_length > normalized.capacity() {
+            // 明确限制扩容目标，避免 String 自动翻倍分配到检查上限之外。
+            let capacity = normalized
+                .capacity()
+                .saturating_mul(2)
+                .max(next_length)
+                .min(maximum_bytes);
+            normalized
+                .try_reserve_exact(capacity - normalized.len())
+                .map_err(|_| "Cannot allocate bounded keyword inspection text.".to_owned())?;
+        }
+        normalized.push(character);
+    }
+    Ok(normalized)
 }
 
 fn is_clause_boundary(character: char) -> bool {
