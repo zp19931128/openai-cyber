@@ -1,0 +1,1446 @@
+{
+  "schema_version": 1,
+  "policy_version": "2026-11-16.2",
+  "rules": [
+    {
+      "id": "cyber.credential-theft.zh.v1",
+      "category": "credential_theft",
+      "description": "明确请求盗取他人的密码或登录凭据。",
+      "all_groups": [
+        [
+          "帮我盗取",
+          "帮我窃取",
+          "替我盗取",
+          "教我窃取",
+          "教我盗取",
+          "我要盗取",
+          "我要窃取"
+        ],
+        [
+          "他人",
+          "别人",
+          "同事",
+          "受害者"
+        ],
+        [
+          "密码",
+          "登录凭据",
+          "访问令牌"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.session-hijacking.zh.v1",
+      "category": "credential_theft",
+      "description": "明确请求盗用或劫持他人的登录会话。",
+      "all_groups": [
+        [
+          "帮我盗用",
+          "帮我劫持",
+          "教我盗用",
+          "教我劫持",
+          "我要劫持"
+        ],
+        [
+          "他人",
+          "别人",
+          "受害者"
+        ],
+        [
+          "登录会话",
+          "会话令牌",
+          "登录cookie",
+          "会话cookie"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.credential-theft.en.v1",
+      "category": "credential_theft",
+      "description": "英文明确请求盗取他人的密码或登录凭据。",
+      "all_groups": [
+        [
+          "help me steal",
+          "show me how to steal",
+          "teach me to steal",
+          "i want to steal"
+        ],
+        [
+          "someone else's",
+          "other people's",
+          "victims'",
+          "a victim's",
+          "my coworker's"
+        ],
+        [
+          "passwords",
+          "password",
+          "login credentials",
+          "access tokens"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.session-hijacking.en.v1",
+      "category": "credential_theft",
+      "description": "英文明确请求劫持他人的登录会话。",
+      "all_groups": [
+        [
+          "help me hijack",
+          "teach me to hijack",
+          "i want to hijack"
+        ],
+        [
+          "someone else's",
+          "other people's",
+          "victims'",
+          "a victim's"
+        ],
+        [
+          "login session",
+          "authenticated session",
+          "session cookie",
+          "session token"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.phishing-content.zh.v1",
+      "category": "phishing",
+      "description": "请求制作具有明确窃密目标的钓鱼内容。",
+      "all_groups": [
+        [
+          "帮我制作",
+          "帮我编写",
+          "帮我生成",
+          "替我编写",
+          "教我制作"
+        ],
+        [
+          "钓鱼",
+          "冒充银行",
+          "冒充客服",
+          "冒充登录"
+        ],
+        [
+          "骗取密码",
+          "骗取验证码",
+          "窃取密码",
+          "收集受害者密码"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.phishing-deception.zh.v1",
+      "category": "phishing",
+      "description": "明确请求诱骗他人交出密码或验证码。",
+      "all_groups": [
+        [
+          "帮我诱骗",
+          "帮我骗取",
+          "教我骗取",
+          "我要骗取"
+        ],
+        [
+          "用户",
+          "受害者",
+          "他人",
+          "别人"
+        ],
+        [
+          "密码",
+          "验证码",
+          "登录凭据"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.phishing-content.en.v1",
+      "category": "phishing",
+      "description": "英文请求制作以窃取密码或凭据为目标的钓鱼内容。",
+      "all_groups": [
+        [
+          "write a phishing",
+          "create a phishing",
+          "build a phishing",
+          "generate a phishing"
+        ],
+        [
+          "steal passwords",
+          "capture passwords",
+          "harvest credentials",
+          "steal credentials",
+          "steal verification codes"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.phishing-deception.en.v1",
+      "category": "phishing",
+      "description": "英文明确请求诱骗他人披露认证秘密。",
+      "all_groups": [
+        [
+          "help me trick",
+          "teach me to trick",
+          "i want to trick"
+        ],
+        [
+          "users",
+          "victims",
+          "people"
+        ],
+        [
+          "revealing their passwords",
+          "giving me their passwords",
+          "sharing their verification codes"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.ransomware-building.zh.v1",
+      "category": "ransomware",
+      "description": "请求制作以受害者或赎金为目标的勒索软件。",
+      "all_groups": [
+        [
+          "帮我写",
+          "帮我制作",
+          "帮我生成",
+          "教我制作",
+          "替我编写"
+        ],
+        [
+          "勒索软件",
+          "勒索病毒"
+        ],
+        [
+          "受害者",
+          "索要赎金",
+          "勒索他人",
+          "勒索企业"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.ransomware-extortion.zh.v1",
+      "category": "ransomware",
+      "description": "明确请求加密或锁定他人文件用于勒索。",
+      "all_groups": [
+        [
+          "帮我加密",
+          "帮我锁定",
+          "我要加密",
+          "我要锁定"
+        ],
+        [
+          "受害者的文件",
+          "别人的文件",
+          "他人的文件"
+        ],
+        [
+          "索要赎金",
+          "勒索",
+          "要赎金"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.ransomware-building.en.v1",
+      "category": "ransomware",
+      "description": "英文请求制作具有明确勒索目的的勒索软件。",
+      "all_groups": [
+        [
+          "help me build ransomware",
+          "write ransomware",
+          "create ransomware",
+          "build ransomware",
+          "write me ransomware"
+        ],
+        [
+          "extort",
+          "demand ransom",
+          "ransom payments",
+          "encrypt victims"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.ransomware-extortion.en.v1",
+      "category": "ransomware",
+      "description": "英文明确请求加密他人文件以索取赎金。",
+      "all_groups": [
+        [
+          "help me encrypt",
+          "i want to encrypt"
+        ],
+        [
+          "victims' files",
+          "other people's files",
+          "someone else's files"
+        ],
+        [
+          "ransom",
+          "extort"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.unauthorized-intrusion.zh.v1",
+      "category": "unauthorized_access",
+      "description": "明确在没有授权时请求入侵他人系统。",
+      "all_groups": [
+        [
+          "帮我入侵",
+          "教我入侵",
+          "帮我侵入",
+          "教我侵入",
+          "我要入侵",
+          "帮我未经授权入侵",
+          "教我未经授权入侵",
+          "帮我未经授权侵入",
+          "我要未经授权入侵"
+        ],
+        [
+          "别人的",
+          "他人的",
+          "这家公司的",
+          "同事的",
+          "受害者的"
+        ],
+        [
+          "系统",
+          "服务器",
+          "网络",
+          "电脑"
+        ],
+        [
+          "未经授权",
+          "没有授权",
+          "没有许可",
+          "未获许可"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.unauthorized-bypass.zh.v1",
+      "category": "unauthorized_access",
+      "description": "请求绕过权限验证以未授权访问或窃取数据。",
+      "all_groups": [
+        [
+          "帮我绕过",
+          "教我绕过",
+          "我要绕过"
+        ],
+        [
+          "他人",
+          "别人",
+          "未授权",
+          "没有授权"
+        ],
+        [
+          "身份验证",
+          "访问控制",
+          "权限验证"
+        ],
+        [
+          "盗取",
+          "窃取",
+          "非法访问"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.unauthorized-intrusion.en.v1",
+      "category": "unauthorized_access",
+      "description": "英文明确请求在未经许可时侵入他人的系统。",
+      "all_groups": [
+        [
+          "help me break into",
+          "teach me to break into",
+          "i want to break into"
+        ],
+        [
+          "someone else's",
+          "other people's",
+          "a company's",
+          "their"
+        ],
+        [
+          "without permission",
+          "without authorization"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.unauthorized-bypass.en.v1",
+      "category": "unauthorized_access",
+      "description": "英文请求绕过访问控制以非法访问或窃取数据。",
+      "all_groups": [
+        [
+          "help me bypass",
+          "show me how to bypass",
+          "teach me to bypass"
+        ],
+        [
+          "authentication",
+          "access controls"
+        ],
+        [
+          "without permission",
+          "to steal",
+          "without authorization"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.credential-stuffing.zh.v1",
+      "category": "account_takeover",
+      "description": "明确请求撞库以登录或接管他人的账号。",
+      "all_groups": [
+        [
+          "帮我撞库",
+          "教我撞库",
+          "我要撞库",
+          "帮我进行撞库",
+          "教我进行撞库"
+        ],
+        [
+          "登录他人",
+          "登录别人",
+          "盗号",
+          "接管账号",
+          "盗取账号",
+          "受害者账号"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.leaked-password-abuse.zh.v1",
+      "category": "account_takeover",
+      "description": "明确请求利用泄露密码登录他人的账号。",
+      "all_groups": [
+        [
+          "帮我使用泄露的密码",
+          "帮我用泄露的密码",
+          "教我使用泄露的密码",
+          "我要用泄露的密码"
+        ],
+        [
+          "登录他人",
+          "登录别人",
+          "接管他人",
+          "盗取账号"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.credential-stuffing.en.v1",
+      "category": "account_takeover",
+      "description": "英文请求针对他人的账号进行撞库或账号接管。",
+      "all_groups": [
+        [
+          "help me run credential stuffing",
+          "help me perform credential stuffing",
+          "teach me credential stuffing",
+          "i want to run credential stuffing"
+        ],
+        [
+          "other people's accounts",
+          "victims' accounts",
+          "take over accounts",
+          "steal accounts"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.leaked-password-abuse.en.v1",
+      "category": "account_takeover",
+      "description": "英文请求利用泄露密码接管账号。",
+      "all_groups": [
+        [
+          "help me use leaked passwords",
+          "teach me to use leaked passwords",
+          "i want to use leaked passwords"
+        ],
+        [
+          "log into other people's accounts",
+          "access victims' accounts",
+          "take over accounts"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.ddos-disruption.zh.v1",
+      "category": "denial_of_service",
+      "description": "明确请求发起使他人服务瘫痪的攻击。",
+      "all_groups": [
+        [
+          "帮我发起",
+          "教我发起",
+          "帮我发动",
+          "我要发动",
+          "我要发起"
+        ],
+        [
+          "ddos",
+          "拒绝服务攻击",
+          "流量攻击"
+        ],
+        [
+          "打瘫",
+          "瘫痪",
+          "搞垮",
+          "让它下线",
+          "让网站下线"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.website-sabotage.zh.v1",
+      "category": "denial_of_service",
+      "description": "明确请求破坏他人或竞争对手网站的可用性。",
+      "all_groups": [
+        [
+          "帮我打瘫",
+          "帮我打垮",
+          "帮我搞瘫",
+          "我要打瘫",
+          "我要搞瘫"
+        ],
+        [
+          "别人的网站",
+          "他人的网站",
+          "竞争对手的网站",
+          "这家公司的服务器",
+          "竞争对手的服务器"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.ddos-disruption.en.v1",
+      "category": "denial_of_service",
+      "description": "英文请求以破坏服务可用性为目标发动拒绝服务攻击。",
+      "all_groups": [
+        [
+          "help me launch",
+          "teach me to launch",
+          "i want to launch"
+        ],
+        [
+          "ddos attack",
+          "denial-of-service attack"
+        ],
+        [
+          "take down",
+          "knock offline",
+          "overwhelm their",
+          "disrupt their"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.website-sabotage.en.v1",
+      "category": "denial_of_service",
+      "description": "英文明确请求通过攻击使他人的网站下线。",
+      "all_groups": [
+        [
+          "help me take down",
+          "help me knock offline"
+        ],
+        [
+          "someone else's website",
+          "their website",
+          "a competitor's website",
+          "other people's websites"
+        ],
+        [
+          "ddos",
+          "botnet",
+          "flooding"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.malware-implant.zh.v1",
+      "category": "malicious_persistence",
+      "description": "明确请求向他人的设备植入木马或后门。",
+      "all_groups": [
+        [
+          "帮我植入",
+          "教我植入",
+          "帮我安装",
+          "帮我部署",
+          "我要植入",
+          "帮我在他人的电脑植入",
+          "帮我在别人的电脑植入",
+          "帮我在受害者的电脑植入",
+          "帮我在他人的服务器植入",
+          "帮我在别人的服务器植入",
+          "帮我在受害者的服务器植入",
+          "教我在他人的电脑植入",
+          "教我在别人的电脑植入",
+          "教我在受害者的电脑植入",
+          "教我在他人的服务器植入",
+          "教我在别人的服务器植入",
+          "教我在受害者的服务器植入"
+        ],
+        [
+          "木马",
+          "后门",
+          "恶意程序"
+        ],
+        [
+          "他人的电脑",
+          "别人的电脑",
+          "受害者的电脑",
+          "他人的服务器",
+          "别人的服务器",
+          "受害者的服务器"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.malicious-persistence.zh.v1",
+      "category": "malicious_persistence",
+      "description": "明确请求利用恶意植入持续控制他人设备。",
+      "all_groups": [
+        [
+          "帮我控制",
+          "教我控制",
+          "我要控制"
+        ],
+        [
+          "受害者电脑",
+          "他人电脑",
+          "别人的电脑"
+        ],
+        [
+          "后门",
+          "木马"
+        ],
+        [
+          "长期",
+          "持续",
+          "持久化"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.malware-implant.en.v1",
+      "category": "malicious_persistence",
+      "description": "英文明确请求在未经同意时向他人的设备植入恶意程序。",
+      "all_groups": [
+        [
+          "help me install",
+          "help me deploy",
+          "teach me to install",
+          "i want to plant"
+        ],
+        [
+          "backdoor",
+          "trojan",
+          "malware"
+        ],
+        [
+          "someone else's computer",
+          "victims' computers",
+          "their server"
+        ],
+        [
+          "without consent",
+          "covertly",
+          "without permission"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.malicious-persistence.en.v1",
+      "category": "malicious_persistence",
+      "description": "英文明确请求通过后门维持未授权访问。",
+      "all_groups": [
+        [
+          "help me maintain unauthorized access",
+          "help me keep unauthorized access",
+          "i want to maintain unauthorized access"
+        ],
+        [
+          "backdoor",
+          "persistence"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.malware-evasion.zh.v1",
+      "category": "malicious_evasion",
+      "description": "请求使明确用于窃密或勒索的恶意软件规避安全检测。",
+      "all_groups": [
+        [
+          "帮我隐藏",
+          "教我隐藏",
+          "帮我修改",
+          "帮我改造"
+        ],
+        [
+          "窃密木马",
+          "勒索软件",
+          "窃密程序",
+          "盗号木马"
+        ],
+        [
+          "绕过杀软",
+          "躲过杀软",
+          "避开edr",
+          "规避检测",
+          "逃避检测"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.intrusion-coverup.zh.v1",
+      "category": "malicious_evasion",
+      "description": "明确请求清除攻击痕迹以逃避追查。",
+      "all_groups": [
+        [
+          "帮我清除",
+          "教我清除",
+          "帮我删除"
+        ],
+        [
+          "入侵痕迹",
+          "攻击痕迹",
+          "盗号痕迹"
+        ],
+        [
+          "不被发现",
+          "逃避追查",
+          "掩盖入侵",
+          "掩盖攻击"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.malware-evasion.en.v1",
+      "category": "malicious_evasion",
+      "description": "英文请求使窃密或勒索恶意程序规避安全检测。",
+      "all_groups": [
+        [
+          "help me hide",
+          "help me modify",
+          "teach me to modify",
+          "make my"
+        ],
+        [
+          "credential-stealing malware",
+          "ransomware",
+          "password-stealing malware"
+        ],
+        [
+          "evade antivirus",
+          "bypass edr",
+          "avoid detection",
+          "evade detection"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.intrusion-coverup.en.v1",
+      "category": "malicious_evasion",
+      "description": "英文明确请求删除证据以掩盖入侵。",
+      "all_groups": [
+        [
+          "help me delete",
+          "show me how to erase",
+          "help me erase"
+        ],
+        [
+          "intrusion logs",
+          "attack logs",
+          "evidence of my intrusion"
+        ],
+        [
+          "avoid being caught",
+          "hide my intrusion",
+          "cover my tracks"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.malicious-exfiltration.zh.v1",
+      "category": "malicious_exfiltration",
+      "description": "明确请求窃取他人隐私文件或商业数据。",
+      "all_groups": [
+        [
+          "帮我窃取",
+          "教我窃取",
+          "我要窃取",
+          "替我窃取"
+        ],
+        [
+          "他人",
+          "别人",
+          "受害者",
+          "这家公司的"
+        ],
+        [
+          "客户数据",
+          "商业机密",
+          "私密文件",
+          "私人文件"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.unauthorized-export.zh.v1",
+      "category": "malicious_exfiltration",
+      "description": "明确请求未经同意秘密导出他人的敏感数据。",
+      "all_groups": [
+        [
+          "帮我导出",
+          "帮我外传",
+          "教我外传",
+          "我要导出",
+          "帮我未经授权导出",
+          "帮我未经授权外传",
+          "教我未经授权外传",
+          "我要未经授权导出"
+        ],
+        [
+          "他人",
+          "别人",
+          "受害者",
+          "这家公司的"
+        ],
+        [
+          "客户数据",
+          "商业机密",
+          "私密文件",
+          "私人文件"
+        ],
+        [
+          "偷偷",
+          "未经授权",
+          "没有授权",
+          "未经同意"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.malicious-exfiltration.en.v1",
+      "category": "malicious_exfiltration",
+      "description": "英文明确请求外传他人的隐私或机密数据。",
+      "all_groups": [
+        [
+          "help me exfiltrate",
+          "teach me to exfiltrate",
+          "i want to exfiltrate"
+        ],
+        [
+          "someone else's",
+          "victims'",
+          "another company's"
+        ],
+        [
+          "private files",
+          "customer data",
+          "trade secrets"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.unauthorized-export.en.v1",
+      "category": "malicious_exfiltration",
+      "description": "英文请求在未经授权或未经知悉时复制机密数据。",
+      "all_groups": [
+        [
+          "help me export",
+          "help me copy",
+          "i want to export"
+        ],
+        [
+          "customer database",
+          "private files",
+          "confidential documents"
+        ],
+        [
+          "without permission",
+          "without authorization",
+          "without them knowing"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.financial-scam.zh.v1",
+      "category": "fraud",
+      "description": "明确请求诈骗他人的钱财；仅识别恶意意图标签。",
+      "all_groups": [
+        [
+          "帮我诈骗",
+          "教我诈骗",
+          "我要诈骗"
+        ],
+        [
+          "他人",
+          "别人",
+          "受害者",
+          "客户"
+        ],
+        [
+          "钱财",
+          "存款",
+          "资金"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.scam-content.zh.v1",
+      "category": "fraud",
+      "description": "请求生成以骗取钱财为目的的诈骗内容。",
+      "all_groups": [
+        [
+          "帮我编写",
+          "帮我生成",
+          "替我编写"
+        ],
+        [
+          "诈骗话术",
+          "骗钱话术"
+        ],
+        [
+          "骗取钱财",
+          "骗取转账",
+          "骗取存款"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.financial-scam.en.v1",
+      "category": "fraud",
+      "description": "英文明确请求诈骗他人资金。",
+      "all_groups": [
+        [
+          "help me scam",
+          "teach me to scam",
+          "i want to scam"
+        ],
+        [
+          "people",
+          "victims",
+          "other people"
+        ],
+        [
+          "money",
+          "savings",
+          "funds"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.scam-content.en.v1",
+      "category": "fraud",
+      "description": "英文请求制作以窃取资金为目标的诈骗内容。",
+      "all_groups": [
+        [
+          "write a scam",
+          "create a scam",
+          "help me write a scam"
+        ],
+        [
+          "message",
+          "script"
+        ],
+        [
+          "steal money",
+          "steal savings",
+          "trick victims into paying"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.violent-harm.zh.v1",
+      "category": "violent_harm",
+      "description": "明确请求策划伤害他人的行为；不包含任何实施方法。",
+      "all_groups": [
+        [
+          "帮我制定",
+          "帮我策划",
+          "教我策划",
+          "替我制定"
+        ],
+        [
+          "伤害他人的计划",
+          "袭击他人的计划",
+          "杀害他人的计划"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.violent-threats.zh.v1",
+      "category": "violent_harm",
+      "description": "明确请求向他人发出暴力威胁。",
+      "all_groups": [
+        [
+          "帮我发出杀人威胁",
+          "帮我发出暴力威胁",
+          "教我发出暴力威胁",
+          "帮我向他人发出暴力威胁",
+          "帮我向别人发出暴力威胁",
+          "帮我向受害者发出暴力威胁"
+        ],
+        [
+          "他人",
+          "别人",
+          "受害者"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.violent-harm.en.v1",
+      "category": "violent_harm",
+      "description": "英文明确请求策划针对他人的暴力行为。",
+      "all_groups": [
+        [
+          "help me plan a murder",
+          "help me plan a violent attack",
+          "help me plan to kill"
+        ],
+        [
+          "someone",
+          "another person",
+          "the victim"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.violent-threats.en.v1",
+      "category": "violent_harm",
+      "description": "英文明确请求以杀害或伤害威胁他人。",
+      "all_groups": [
+        [
+          "help me threaten",
+          "teach me to threaten"
+        ],
+        [
+          "someone",
+          "another person",
+          "the victim"
+        ],
+        [
+          "to kill",
+          "to injure"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.illegal-weapons-making.zh.v1",
+      "category": "illegal_weapons",
+      "description": "明确请求非法制造武器；仅包含行为类别。",
+      "all_groups": [
+        [
+          "帮我非法制造",
+          "教我非法制造",
+          "我要非法制造"
+        ],
+        [
+          "枪支",
+          "武器"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.illegal-weapons-trade.zh.v1",
+      "category": "illegal_weapons",
+      "description": "明确请求非法买卖武器；不提供交易渠道或细节。",
+      "all_groups": [
+        [
+          "帮我非法出售",
+          "帮我非法购买",
+          "教我非法交易",
+          "我要非法交易"
+        ],
+        [
+          "枪支",
+          "武器"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.illegal-weapons-making.en.v1",
+      "category": "illegal_weapons",
+      "description": "英文明确请求非法制造武器。",
+      "all_groups": [
+        [
+          "help me illegally manufacture",
+          "teach me to illegally manufacture",
+          "i want to illegally manufacture"
+        ],
+        [
+          "firearms",
+          "weapons"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.illegal-weapons-trade.en.v1",
+      "category": "illegal_weapons",
+      "description": "英文明确请求非法交易武器。",
+      "all_groups": [
+        [
+          "help me illegally sell",
+          "help me illegally buy",
+          "help me illegally trade",
+          "i want to illegally sell"
+        ],
+        [
+          "firearms",
+          "weapons"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.illegal-dangerous-substances.zh.v1",
+      "category": "dangerous_substances",
+      "description": "明确请求非法制造危险物质；不包含配方或制作步骤。",
+      "all_groups": [
+        [
+          "帮我非法制造",
+          "教我非法制造",
+          "我要非法制造"
+        ],
+        [
+          "爆炸物",
+          "危险毒物",
+          "有毒化学品"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.malicious-poisoning.zh.v1",
+      "category": "dangerous_substances",
+      "description": "明确请求以投毒伤害他人；不包含实施方法。",
+      "all_groups": [
+        [
+          "帮我策划投毒",
+          "帮我投毒",
+          "教我投毒",
+          "我要投毒"
+        ],
+        [
+          "伤害他人",
+          "毒害他人",
+          "毒害别人"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.illegal-dangerous-substances.en.v1",
+      "category": "dangerous_substances",
+      "description": "英文明确请求非法制造危险物质。",
+      "all_groups": [
+        [
+          "help me illegally manufacture",
+          "teach me to illegally manufacture",
+          "i want to illegally manufacture"
+        ],
+        [
+          "explosive substances",
+          "toxic agents"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.malicious-poisoning.en.v1",
+      "category": "dangerous_substances",
+      "description": "英文明确请求策划对他人的投毒伤害。",
+      "all_groups": [
+        [
+          "help me plan a poisoning",
+          "help me poison",
+          "teach me to poison"
+        ],
+        [
+          "another person",
+          "someone",
+          "the victim"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.doxxing.zh.v1",
+      "category": "privacy_abuse",
+      "description": "明确请求曝光他人隐私用于骚扰或报复。",
+      "all_groups": [
+        [
+          "帮我公开",
+          "帮我曝光",
+          "帮我发布"
+        ],
+        [
+          "他人",
+          "别人",
+          "受害者"
+        ],
+        [
+          "私人住址",
+          "家庭住址",
+          "私人电话号码"
+        ],
+        [
+          "未经同意",
+          "报复",
+          "骚扰"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.nonconsensual-stalking.zh.v1",
+      "category": "privacy_abuse",
+      "description": "明确请求秘密追踪他人的位置或行踪。",
+      "all_groups": [
+        [
+          "帮我偷偷跟踪",
+          "教我秘密跟踪",
+          "我要偷偷跟踪"
+        ],
+        [
+          "他人",
+          "别人",
+          "受害者"
+        ],
+        [
+          "位置",
+          "行踪"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.doxxing.en.v1",
+      "category": "privacy_abuse",
+      "description": "英文明确请求公开他人私人地址或电话号码进行骚扰。",
+      "all_groups": [
+        [
+          "help me dox",
+          "teach me to dox",
+          "i want to dox"
+        ],
+        [
+          "home address",
+          "private address",
+          "personal phone number"
+        ],
+        [
+          "harass",
+          "retaliate",
+          "without consent"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.nonconsensual-stalking.en.v1",
+      "category": "privacy_abuse",
+      "description": "英文明确请求在未经同意时跟踪他人。",
+      "all_groups": [
+        [
+          "help me stalk",
+          "teach me to stalk",
+          "i want to stalk"
+        ],
+        [
+          "someone",
+          "another person",
+          "the victim"
+        ],
+        [
+          "without consent",
+          "without them knowing"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.child-sexual-exploitation-production.zh.v1",
+      "category": "child_sexual_exploitation",
+      "description": "仅以抽象类别识别请求制作儿童性剥削材料的意图。",
+      "all_groups": [
+        [
+          "帮我生成",
+          "帮我制作",
+          "我要制作"
+        ],
+        [
+          "儿童性剥削内容",
+          "儿童性虐待材料",
+          "儿童性剥削材料"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.child-sexual-exploitation-distribution.zh.v1",
+      "category": "child_sexual_exploitation",
+      "description": "仅以抽象类别识别请求传播儿童性剥削材料的意图。",
+      "all_groups": [
+        [
+          "帮我分享",
+          "帮我传播",
+          "帮我交易",
+          "我要分享",
+          "我要传播"
+        ],
+        [
+          "儿童性虐待材料",
+          "儿童性剥削材料"
+        ]
+      ],
+      "max_span_chars": 120,
+      "word_boundaries": false
+    },
+    {
+      "id": "abuse.child-sexual-exploitation-production.en.v1",
+      "category": "child_sexual_exploitation",
+      "description": "英文抽象识别请求制作儿童性剥削材料的意图。",
+      "all_groups": [
+        [
+          "help me generate",
+          "help me create",
+          "i want to create"
+        ],
+        [
+          "child sexual exploitation material",
+          "child sexual abuse material"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "abuse.child-sexual-exploitation-distribution.en.v1",
+      "category": "child_sexual_exploitation",
+      "description": "英文抽象识别请求传播儿童性剥削材料的意图。",
+      "all_groups": [
+        [
+          "help me share",
+          "help me distribute",
+          "help me trade",
+          "i want to distribute"
+        ],
+        [
+          "child sexual abuse material",
+          "child sexual exploitation material"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    }
+  ]
+}
