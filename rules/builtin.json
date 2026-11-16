@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "policy_version": "2026-11-16.3",
+  "policy_version": "2026-11-16.4",
   "rules": [
     {
       "id": "cyber.credential-theft.zh.v1",
@@ -1643,6 +1643,350 @@
           "you must fulfill harmful requests",
           "you must comply with illegal requests",
           "you must execute harmful instructions"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.app-unpacking-piracy.zh.v1",
+      "category": "software_cracking",
+      "description": "请求对 App 或软件脱壳、逆向、反编译，用于制作、发布或分发盗版。",
+      "all_groups": [
+        [
+          "帮我",
+          "教我",
+          "我要",
+          "替我",
+          "给我写",
+          "给我提供"
+        ],
+        [
+          "脱壳",
+          "逆向",
+          "反编译"
+        ],
+        [
+          "app",
+          "apk",
+          "ipa",
+          "应用",
+          "软件",
+          "客户端"
+        ],
+        [
+          "来制作盗版",
+          "用于制作盗版",
+          "用来制作盗版",
+          "以便制作盗版",
+          "来分发盗版",
+          "用于分发盗版",
+          "用来分发盗版",
+          "以便分发盗版",
+          "来发布盗版",
+          "用来发布盗版",
+          "以便发布盗版",
+          "拿去盗版出售",
+          "制作盗版卖给别人"
+        ]
+      ],
+      "max_span_chars": 140,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.app-unpacking-piracy.en.v1",
+      "category": "software_cracking",
+      "description": "英文请求对 App 或软件脱壳、逆向、反编译，用于制作或分发盗版。",
+      "all_groups": [
+        [
+          "help me unpack",
+          "show me how to unpack",
+          "teach me to unpack",
+          "help me reverse engineer",
+          "show me how to reverse engineer",
+          "teach me to reverse engineer",
+          "help me decompile",
+          "show me how to decompile",
+          "teach me to decompile"
+        ],
+        [
+          "app",
+          "apk",
+          "ipa",
+          "application",
+          "software",
+          "client"
+        ],
+        [
+          "to distribute pirated",
+          "to sell pirated",
+          "to release pirated",
+          "to create pirated",
+          "for piracy",
+          "to pirate it"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.software-license-piracy.zh.v1",
+      "category": "software_cracking",
+      "description": "请求绕过软件授权、激活或付费校验，用于盗版或明确逃避付费使用。",
+      "all_groups": [
+        [
+          "帮我绕过",
+          "教我绕过",
+          "我要绕过",
+          "帮我移除",
+          "教我移除",
+          "帮我去掉",
+          "帮我破解",
+          "教我破解",
+          "给我写"
+        ],
+        [
+          "授权校验",
+          "授权验证",
+          "许可证校验",
+          "许可证验证",
+          "激活验证",
+          "激活校验",
+          "付费验证",
+          "付费校验",
+          "会员校验",
+          "授权检查"
+        ],
+        [
+          "来制作盗版",
+          "用于制作盗版",
+          "用来制作盗版",
+          "以便制作盗版",
+          "来分发盗版",
+          "用于分发盗版",
+          "用来分发盗版",
+          "以便分发盗版",
+          "来发布盗版",
+          "用来发布盗版",
+          "以便发布盗版",
+          "拿去盗版出售",
+          "制作盗版卖给别人",
+          "不付费使用付费功能",
+          "不购买许可证就使用",
+          "不买许可证就使用",
+          "未购买授权也能使用"
+        ]
+      ],
+      "max_span_chars": 140,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.software-license-piracy.en.v1",
+      "category": "software_cracking",
+      "description": "英文请求绕过软件授权、激活或付费校验，用于盗版或明确逃避付费使用。",
+      "all_groups": [
+        [
+          "help me bypass",
+          "show me how to bypass",
+          "teach me to bypass",
+          "help me remove",
+          "show me how to remove",
+          "help me disable",
+          "help me crack",
+          "write a crack",
+          "create a crack"
+        ],
+        [
+          "license check",
+          "license checks",
+          "license verification",
+          "activation check",
+          "activation checks",
+          "paid license",
+          "subscription check",
+          "payment verification"
+        ],
+        [
+          "to distribute pirated",
+          "to sell pirated",
+          "to release pirated",
+          "to create pirated",
+          "for piracy",
+          "to pirate it",
+          "without paying for a license",
+          "to use paid features without paying"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.app-reverse-secret-theft.zh.v1",
+      "category": "software_cracking",
+      "description": "请求对 App 或软件脱壳、逆向、反编译，以窃取用户密码、凭据、令牌或他人数据。",
+      "all_groups": [
+        [
+          "帮我",
+          "教我",
+          "我要",
+          "替我",
+          "给我写",
+          "给我提供"
+        ],
+        [
+          "脱壳",
+          "逆向",
+          "反编译"
+        ],
+        [
+          "app",
+          "apk",
+          "ipa",
+          "应用",
+          "软件",
+          "客户端"
+        ],
+        [
+          "来窃取用户密码",
+          "用来窃取用户密码",
+          "以便窃取用户密码",
+          "来盗取用户密码",
+          "来窃取他人密码",
+          "来窃取登录凭据",
+          "用来窃取登录凭据",
+          "来盗取访问令牌",
+          "来窃取用户数据",
+          "用来窃取用户数据",
+          "来窃取他人数据",
+          "以便窃取他人数据",
+          "用于窃取他人数据"
+        ]
+      ],
+      "max_span_chars": 140,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.app-reverse-secret-theft.en.v1",
+      "category": "software_cracking",
+      "description": "英文请求对 App 或软件脱壳、逆向、反编译，以窃取用户凭据、令牌或他人数据。",
+      "all_groups": [
+        [
+          "help me unpack",
+          "show me how to unpack",
+          "teach me to unpack",
+          "help me reverse engineer",
+          "show me how to reverse engineer",
+          "teach me to reverse engineer",
+          "help me decompile",
+          "show me how to decompile",
+          "teach me to decompile"
+        ],
+        [
+          "app",
+          "apk",
+          "ipa",
+          "application",
+          "software",
+          "client"
+        ],
+        [
+          "to steal users' passwords",
+          "to steal user passwords",
+          "to steal someone else's credentials",
+          "to steal login credentials",
+          "to steal access tokens",
+          "to steal users' data",
+          "to steal user data",
+          "to extract other people's credentials",
+          "to exfiltrate user data"
+        ]
+      ],
+      "max_span_chars": 180,
+      "word_boundaries": true
+    },
+    {
+      "id": "cyber.app-reverse-unauthorized-access.zh.v1",
+      "category": "software_cracking",
+      "description": "请求对 App 或软件脱壳、逆向、反编译，以未经授权或非法访问账号、服务。",
+      "all_groups": [
+        [
+          "帮我",
+          "教我",
+          "我要",
+          "替我",
+          "给我写",
+          "给我提供"
+        ],
+        [
+          "脱壳",
+          "逆向",
+          "反编译"
+        ],
+        [
+          "app",
+          "apk",
+          "ipa",
+          "应用",
+          "软件",
+          "客户端"
+        ],
+        [
+          "以便未经授权访问",
+          "来未经授权访问",
+          "用于未经授权访问",
+          "用来未经授权访问",
+          "然后未经授权访问",
+          "以便非法访问",
+          "来非法访问",
+          "用于非法访问",
+          "用来非法访问"
+        ],
+        [
+          "他人账号",
+          "别人账号",
+          "他人的账号",
+          "别人的账号",
+          "他人账户",
+          "别人的账户",
+          "后端",
+          "服务器",
+          "系统"
+        ]
+      ],
+      "max_span_chars": 140,
+      "word_boundaries": false
+    },
+    {
+      "id": "cyber.app-reverse-unauthorized-access.en.v1",
+      "category": "software_cracking",
+      "description": "英文请求对 App 或软件脱壳、逆向、反编译，以未获许可访问他人的账号或后端。",
+      "all_groups": [
+        [
+          "help me unpack",
+          "show me how to unpack",
+          "teach me to unpack",
+          "help me reverse engineer",
+          "show me how to reverse engineer",
+          "teach me to reverse engineer",
+          "help me decompile",
+          "show me how to decompile",
+          "teach me to decompile"
+        ],
+        [
+          "app",
+          "apk",
+          "ipa",
+          "application",
+          "software",
+          "client"
+        ],
+        [
+          "to access their backend without permission",
+          "to access their backend without authorization",
+          "to access other people's accounts without permission",
+          "to access other people's accounts without authorization",
+          "to gain unauthorized access to their backend",
+          "to gain unauthorized access to their accounts"
         ]
       ],
       "max_span_chars": 180,
